@@ -33,7 +33,6 @@ pub const REVISION: u32 = 1;
 pub const OP_CODE_MASK: u32 = 0xffff;
 pub const WORD_COUNT_SHIFT: u32 = 16;
 
-#[repr(usize)]
 pub enum SourceLanguage {
     SourceLanguageUnknown = 0,
     SourceLanguageESSL = 1,
@@ -44,7 +43,6 @@ pub enum SourceLanguage {
     SourceLanguageMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum ExecutionModel {
     ExecutionModelVertex = 0,
     ExecutionModelTessellationControl = 1,
@@ -56,7 +54,6 @@ pub enum ExecutionModel {
     ExecutionModelMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum AddressingModel {
     AddressingModelLogical = 0,
     AddressingModelPhysical32 = 1,
@@ -64,7 +61,6 @@ pub enum AddressingModel {
     AddressingModelMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum MemoryModel {
     MemoryModelSimple = 0,
     MemoryModelGLSL450 = 1,
@@ -72,7 +68,6 @@ pub enum MemoryModel {
     MemoryModelMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum ExecutionMode {
     ExecutionModeInvocations = 0,
     ExecutionModeSpacingEqual = 1,
@@ -117,7 +112,6 @@ pub enum ExecutionMode {
     ExecutionModeMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum StorageClass {
     StorageClassUniformConstant = 0,
     StorageClassInput = 1,
@@ -135,7 +129,6 @@ pub enum StorageClass {
     StorageClassMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum Dim {
     Dim1D = 0,
     Dim2D = 1,
@@ -147,7 +140,6 @@ pub enum Dim {
     DimMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum SamplerAddressingMode {
     SamplerAddressingModeNone = 0,
     SamplerAddressingModeClampToEdge = 1,
@@ -157,14 +149,12 @@ pub enum SamplerAddressingMode {
     SamplerAddressingModeMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum SamplerFilterMode {
     SamplerFilterModeNearest = 0,
     SamplerFilterModeLinear = 1,
     SamplerFilterModeMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum ImageFormat {
     ImageFormatUnknown = 0,
     ImageFormatRgba32f = 1,
@@ -209,7 +199,6 @@ pub enum ImageFormat {
     ImageFormatMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum ImageChannelOrder {
     ImageChannelOrderR = 0,
     ImageChannelOrderA = 1,
@@ -234,7 +223,6 @@ pub enum ImageChannelOrder {
     ImageChannelOrderMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum ImageChannelDataType {
     ImageChannelDataTypeSnormInt8 = 0,
     ImageChannelDataTypeSnormInt16 = 1,
@@ -256,7 +244,6 @@ pub enum ImageChannelDataType {
     ImageChannelDataTypeMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum ImageOperandsShift {
     ImageOperandsBiasShift = 0,
     ImageOperandsLodShift = 1,
@@ -269,7 +256,6 @@ pub enum ImageOperandsShift {
     ImageOperandsMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum ImageOperandsMask {
     ImageOperandsMaskNone = 0,
     ImageOperandsBiasMask = 0x00000001,
@@ -282,7 +268,6 @@ pub enum ImageOperandsMask {
     ImageOperandsMinLodMask = 0x00000080,
 }
 
-#[repr(usize)]
 pub enum FPFastMathModeShift {
     FPFastMathModeNotNaNShift = 0,
     FPFastMathModeNotInfShift = 1,
@@ -292,7 +277,6 @@ pub enum FPFastMathModeShift {
     FPFastMathModeMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum FPFastMathModeMask {
     FPFastMathModeMaskNone = 0,
     FPFastMathModeNotNaNMask = 0x00000001,
@@ -302,7 +286,6 @@ pub enum FPFastMathModeMask {
     FPFastMathModeFastMask = 0x00000010,
 }
 
-#[repr(usize)]
 pub enum FPRoundingMode {
     FPRoundingModeRTE = 0,
     FPRoundingModeRTZ = 1,
@@ -311,14 +294,12 @@ pub enum FPRoundingMode {
     FPRoundingModeMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum LinkageType {
     LinkageTypeExport = 0,
     LinkageTypeImport = 1,
     LinkageTypeMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum AccessQualifier {
     AccessQualifierReadOnly = 0,
     AccessQualifierWriteOnly = 1,
@@ -326,7 +307,6 @@ pub enum AccessQualifier {
     AccessQualifierMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum FunctionParameterAttribute {
     FunctionParameterAttributeZext = 0,
     FunctionParameterAttributeSext = 1,
@@ -339,7 +319,6 @@ pub enum FunctionParameterAttribute {
     FunctionParameterAttributeMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum Decoration {
     DecorationRelaxedPrecision = 0,
     DecorationSpecId = 1,
@@ -397,7 +376,6 @@ pub enum Decoration {
     DecorationMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum BuiltIn {
     BuiltInPosition = 0,
     BuiltInPointSize = 1,
@@ -472,21 +450,18 @@ pub enum BuiltIn {
     BuiltInMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum SelectionControlShift {
     SelectionControlFlattenShift = 0,
     SelectionControlDontFlattenShift = 1,
     SelectionControlMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum SelectionControlMask {
     SelectionControlMaskNone = 0,
     SelectionControlFlattenMask = 0x00000001,
     SelectionControlDontFlattenMask = 0x00000002,
 }
 
-#[repr(usize)]
 pub enum LoopControlShift {
     LoopControlUnrollShift = 0,
     LoopControlDontUnrollShift = 1,
@@ -495,7 +470,6 @@ pub enum LoopControlShift {
     LoopControlMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum LoopControlMask {
     LoopControlMaskNone = 0,
     LoopControlUnrollMask = 0x00000001,
@@ -504,7 +478,6 @@ pub enum LoopControlMask {
     LoopControlDependencyLengthMask = 0x00000008,
 }
 
-#[repr(usize)]
 pub enum FunctionControlShift {
     FunctionControlInlineShift = 0,
     FunctionControlDontInlineShift = 1,
@@ -513,7 +486,6 @@ pub enum FunctionControlShift {
     FunctionControlMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum FunctionControlMask {
     FunctionControlMaskNone = 0,
     FunctionControlInlineMask = 0x00000001,
@@ -522,7 +494,6 @@ pub enum FunctionControlMask {
     FunctionControlConstMask = 0x00000008,
 }
 
-#[repr(usize)]
 pub enum MemorySemanticsShift {
     MemorySemanticsAcquireShift = 1,
     MemorySemanticsReleaseShift = 2,
@@ -537,7 +508,6 @@ pub enum MemorySemanticsShift {
     MemorySemanticsMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum MemorySemanticsMask {
     MemorySemanticsMaskNone = 0,
     MemorySemanticsAcquireMask = 0x00000002,
@@ -552,7 +522,6 @@ pub enum MemorySemanticsMask {
     MemorySemanticsImageMemoryMask = 0x00000800,
 }
 
-#[repr(usize)]
 pub enum MemoryAccessShift {
     MemoryAccessVolatileShift = 0,
     MemoryAccessAlignedShift = 1,
@@ -560,7 +529,6 @@ pub enum MemoryAccessShift {
     MemoryAccessMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum MemoryAccessMask {
     MemoryAccessMaskNone = 0,
     MemoryAccessVolatileMask = 0x00000001,
@@ -568,7 +536,6 @@ pub enum MemoryAccessMask {
     MemoryAccessNontemporalMask = 0x00000004,
 }
 
-#[repr(usize)]
 pub enum Scope {
     ScopeCrossDevice = 0,
     ScopeDevice = 1,
@@ -578,7 +545,6 @@ pub enum Scope {
     ScopeMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum GroupOperation {
     GroupOperationReduce = 0,
     GroupOperationInclusiveScan = 1,
@@ -587,7 +553,6 @@ pub enum GroupOperation {
     GroupOperationMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum KernelEnqueueFlags {
     KernelEnqueueFlagsNoWait = 0,
     KernelEnqueueFlagsWaitKernel = 1,
@@ -595,19 +560,16 @@ pub enum KernelEnqueueFlags {
     KernelEnqueueFlagsMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum KernelProfilingInfoShift {
     KernelProfilingInfoCmdExecTimeShift = 0,
     KernelProfilingInfoMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum KernelProfilingInfoMask {
     KernelProfilingInfoMaskNone = 0,
     KernelProfilingInfoCmdExecTimeMask = 0x00000001,
 }
 
-#[repr(usize)]
 pub enum Capability {
     CapabilityMatrix = 0,
     CapabilityShader = 1,
@@ -710,7 +672,6 @@ pub enum Capability {
     CapabilityMax = 0x7fffffff,
 }
 
-#[repr(usize)]
 pub enum Op {
     OpNop = 0,
     OpUndef = 1,

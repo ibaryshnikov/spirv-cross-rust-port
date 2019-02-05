@@ -26,7 +26,6 @@ impl Bitset {
 
     fn get(&self, bit: u32) -> bool {
         if bit < 64 {
-            // TODO: ull is what the type? u64?
             (self.lower & (1u64 << bit)) != 0
         } else {
             self.higher.contains(&bit)
@@ -35,7 +34,6 @@ impl Bitset {
 
     fn set(&mut self, bit: u32) {
         if bit < 64 {
-            // TODO: ull is what type?
             self.lower |= 1u64 << bit;
         } else {
             self.higher.insert(bit);
@@ -44,9 +42,8 @@ impl Bitset {
 
     fn clear(&mut self) {
         if bit < 64 {
-            // todo: ull what type?
             // how to do bitwise invert, like "~" operator
-            self.lower &= (~(1u64 << bit));
+            self.lower &= !(1u64 << bit);
         } else {
             self.higher.remove(bit);
         }
@@ -82,7 +79,6 @@ impl Bitset {
     fn for_each_bit<T>(&self, op: T) {
         // TODO: Add ctz-based iteration.
         for i in 0..64 {
-            // TODO: i hope 1ull is really 1u64
             if lower & (1u64 << i) {
                 op(i);
             }
@@ -665,7 +661,7 @@ struct CombinedImageSamplerParameter {
     global_image: bool,
     global_sampler: bool,
     depth: bool,
-};
+}
 
 struct SPIRFunction {
     _type: Types,
@@ -784,6 +780,435 @@ impl SPIRAccessChain {
             immutable: false,
             implied_read_expressions: vec![],
         }
+    }
+}
+
+struct SPIRVariable {
+    _type: Types,
+    basetype: u32,
+    storage: spv::StorageClass,
+    decoration: u32,
+    initializer: u32,
+    basevariable: u32,
+
+    dereference_chain: Vec<u32>,
+    compat_builtin: bool,
+
+    // If a variable is shadowed, we only statically assign to it
+    // and never actually emit a statement for it.
+    // When we read the variable as an expression, just forward
+    // shadowed_id as the expression.
+    statically_assigned: bool,
+    static_expression: u32,
+
+    // Temporaries which can remain forwarded as long as this variable is not modified.
+    dependees: Vec<u32>,
+    forwardable: bool,
+
+    deferred_declaration: bool,
+    phi_variable: bool,
+
+    // Used to deal with Phi variable flushes. See flush_phi().
+    allocate_temporary_copy: bool,
+
+    remapped_variable: bool,
+    remapped_components: u32,
+
+    // The block which dominates all access to this variable.
+    dominator: u32,
+    // If true, this variable is a loop variable, when accessing the variable
+    // outside a loop,
+    // we should statically forward it.
+    loop_variable: bool,
+    // Set to true while we're inside the for loop.
+    loop_variable_enable: bool,
+
+    parameter: Option<Parameter>,
+}
+
+impl SPIRVariable {
+    fn new(
+        basetype: u32,
+        storage: spv::StorageClass,
+        initializer: impl Into<Option<u32>>, // 0
+        basevariable: impl Into<Otpion<u32>>, // 0
+    ) -> Self {
+        let initializer = (initializer as Option<u32>)
+            .unwrap_or(0);
+        let basevariable = (basevariable as Option<u32>)
+            .unwrap_or(0);
+        SPIRVariable {
+            _type: Types::TypeVariable,
+            basetype,
+            storage,
+            initializer,
+            basevariable,
+            decoration: 0,
+            dereference_chain: vec![],
+            compat_builtin: bool,
+            statically_assigned: bool,
+            static_expression: 0,
+            dependees: vec![],
+            forwardable: true,
+            deferred_declaration: false,
+            phi_variable: false,
+            allocate_temporary_copy: false,
+            remapped_variable: false,
+            remapped_components: 0,
+            dominator: 0,
+            loop_variable: false,
+            loop_variable_enable: false,
+            parameter: None,
+        }
+    }
+}
+
+#[derive(Copy)]
+struct Constant(u64);
+
+impl Constant {
+    fn from_i32(value: i32) -> Self {
+        Self(u32::from_ne_bytes(value.to_ne_bytes()))
+    }
+    fn from_u32(value: u32) -> Self {
+        Self(value)
+    }
+    fn from_i64(value: i64) -> Self {
+        Self(u64::from_ne_bytes(value.to_ne_bytes()))
+    }
+    fn from_u64(value: u64) -> Self {
+        Self(value)
+    }
+    fn from_f32(value: f32) -> Self {
+        Self(value.to_bits())
+    }
+    fn from_f64(value: f64) -> Self {
+        Self(value.to_bits())
+    }
+    fn to_u32(&self) -> u32 {
+        self.0 as u32
+    }
+    fn to_i32(&self) -> i32 {
+        i32::from_ne_bytes((self.0 as u32).to_ne_bytes())
+    }
+    fn to_i64(&self) -> i64 {
+        i64::from_ne_bytes(self.0.to_ne_bytes())
+    }
+    fn to_u64(&self) -> u64 {
+        self.0
+    }
+    fn to_f32(&self) -> f32 {
+        f32::from_bits(self.0 as u32)
+    }
+    fn to_f64(&self) -> f64 {
+        f64::from_bits(self.0)
+    }
+}
+
+struct ConstantVector {
+    r: [Constant; 4],
+    id: [u32; 4],
+    vecsize: u32,
+}
+
+impl Default for ConstantVector {
+    fn default() -> Self {
+        ConstantVector {
+            r: [Constant(0); 4],
+            id: [0; 4],
+            vecsize: 1,
+        }
+    }
+}
+
+struct ConstantMatrix {
+    c: [ConstantVector; 4],
+    id: [u32; 4],
+    columns: u32,
+}
+
+impl Default for ConstantMatrix {
+    fn default() -> Self {
+        ConstantMatrix {
+            c: [ConstantVector::default(); 4],
+            id: [0; 4],
+            columns: 1,
+        }
+    }
+}
+
+struct SPIRConstant {
+    _type: Types,
+    constant_type: u32,
+    m: ConstantMatrix,
+
+    // If this constant is a specialization constant (i.e. created with OpSpecConstant*).
+    specialization: bool,
+    // If this constant is used as an array length which creates specialization restrictions on some backends.
+    is_used_as_array_length: bool,
+
+    // If true, this is a LUT, and should always be declared in the outer scope.
+    is_used_as_lut: bool,
+
+    // For composites which are constant arrays, etc.
+    subconstants: Vec<u32>,
+
+    // Non-Vulkan GLSL, HLSL and sometimes MSL emits defines for each specialization constant,
+    // and uses them to initialize the constant. This allows the user
+    // to still be able to specialize the value by supplying corresponding
+    // preprocessor directives before compiling the shader.
+    specialization_constant_macro_name: String,
+}
+
+impl SPIRConstant {
+    fn new(constant_type: u32) -> Self {
+        SPIRConstant {
+            _type: Types::TypeConstant,
+            constant_type,
+            m: ConstantMatrix::default(),
+            specialization: false,
+            is_used_as_array_length: false,
+            is_used_as_lut: false,
+            subconstants: vec![],
+            specialization_constant_macro_name: String::new(),
+        }
+    }
+
+    fn new_with_subconstants_and_specialization(
+        constant_type: u32,
+        elements: Vec<u32>,
+        specialized: bool,
+    ) -> Self {
+        SPIRConstant {
+            _type: Types::TypeConstant,
+            constant_type,
+            m: ConstantMatrix::default(),
+            specialization: specialized,
+            is_used_as_array_length: false,
+            is_used_as_lut: false,
+            subconstants: elements,
+            specialization_constant_macro_name: String::new(),
+        }
+    }
+
+    // Construct scalar (32-bit).
+    fn new_with_scalar_u32_and_specialization(
+        constant_type: u32,
+        v0: u32,
+        specialized: bool,
+    ) -> Self {
+        let mut constant = SPIRConstant {
+            _type: Types::TypeConstant,
+            constant_type,
+            m: ConstantMatrix::default(),
+            specialization: specialized,
+            is_used_as_array_length: false,
+            is_used_as_lut: false,
+            subconstants: elements,
+            specialization_constant_macro_name: String::new(),
+        };
+        constant.m.c[0].r[0] = Constant::from_u32(v0);
+        constant.m.c[0].vecsize = 1;
+        m.columns = 1;
+        constant
+    }
+
+    // Construct scalar (64-bit).
+    fn new_with_scalar_u64_and_specialization(
+        constant_type: u32,
+        v0: u64,
+        specialized: bool,
+    ) -> Self {
+        let mut constant = SPIRConstant {
+            _type: Types::TypeConstant,
+            constant_type,
+            m: ConstantMatrix::default(),
+            specialization: specialized,
+            is_used_as_array_length: false,
+            is_used_as_lut: false,
+            subconstants: elements,
+            specialization_constant_macro_name: String::new(),
+        };
+        constant.m.c[0].r[0] = Constant::from_u64(v0);
+        constant.m.c[0].vecsize = 1;
+        m.columns = 1;
+        constant
+    }
+
+    fn new_with_elements_and_specialization(
+        constant_type: u32,
+        vector_elements: &Vec<SPIRConstant>,
+        specialized: bool,
+    ) -> Self {
+        let mut constant = SPIRConstant {
+            _type: Types::TypeConstant,
+            constant_type,
+            m: ConstantMatrix::default(),
+            specialization: specialized,
+            is_used_as_array_length: false,
+            is_used_as_lut: false,
+            subconstants: elements,
+            specialization_constant_macro_name: String::new(),
+        };
+
+        let matrix = vector_elements[0].m.c[0].vecsize > 1;
+        if matrix {
+            constant.m.columns = vector_elements.len() as u32;
+            for i in 0..vector_elements.len() {
+                constant.m.c[i] = vector_elements[i].m.c[0];
+                if vector_elements[i].specialization {
+//                    constant.m.id[i] = vector_elements[i].self
+                    // TODO: add <_self> from IVariant
+                    constant.m.id[i] = 0;
+                }
+            }
+        } else {
+            constant.m.c[0].vecsize = vector_elements.len() as u32;
+            constant.m.columns = 1;
+            for i in 0..vector_elements.len() {
+                constant.m.c[0].r[i] = vector_elements.m.c[0].r[0];
+                if vector_elements[i].specialization {
+//                    constant.m.c[0].id[i] = vector_elements[i].self;
+                    // TODO: add <_self> from IVariant
+                    constant.m.c[0].id[i] = 0;
+                }
+            }
+        }
+
+        constant
+    }
+
+    fn f16_to_f32(u16_value: u16) -> f32 {
+        // Based on the GLM implementation.
+        let s: i32 = ((u16_value >> 15) & 0x1) as i32;
+        let mut e: i32 = ((u16_value >> 10) & 0x1f) as i32;
+        let mut m: i32 = ((u16_value >> 0) & 0x3ff) as i32;
+
+        if e == 0 {
+            if m == 0 {
+                let u: u32 = (s as u32) << 31;
+                return f32::from_bits(u);
+            } else {
+                while (m & 0x400) == 0 {
+                    m <<= 1;
+                    e -= 1;
+                }
+
+                e += 1;
+                m &= !0x400;
+            }
+        }
+        else if e == 31 {
+            if m == 0 {
+                let u: u32 = ((s as u32) << 31) | 0x7f800000u32;
+                return f32::from_bits(u);
+            } else {
+                let u: u32 = ((s as u32) << 31) | 0x7f800000u32 | (m << 13);
+                return f32::from_bits(u);
+            }
+        }
+
+        e += 127 - 15;
+        m <<= 13;
+        let u: u32 = ((s as u32) << 31) | (e << 23) | m;
+        return f32::from_bits(u);
+    }
+
+    fn specialization_constant_id(&self, col: usize, row: usize) -> u32 {
+        self.m.c[col].id[row]
+    }
+
+    fn specialization_constant_id_col(&self, col: usize) -> u32 {
+        self.m.id[col]
+    }
+
+    fn get_constant(&self, col: Option<usize>, row: Option<usize>) -> Constant {
+        self.m
+            .c[col.unwrap_or(0)]
+            .r[row.unwrap_or(0)]
+    }
+
+    fn scalar(&self, col: impl Into<Option<usize>>, row: impl Into<Option<usize>>) -> u32 {
+        self.get_constant(col, row).to_u32()
+    }
+
+    fn scalar_i8(&self, col: impl Into<Option<usize>>, row: impl Into<Option<usize>>) -> i8 {
+        (self.get_constant(col, row).to_u32() & 0xffu32) as i8
+    }
+
+    fn scalar_u8(&self, col: impl Into<Option<usize>>, row: impl Into<Option<usize>>) -> u8 {
+        (self.get_constant(col, row).to_u32() & 0xffu32) as u8
+    }
+
+    fn scalar_i16(&self, col: impl Into<Option<usize>>, row: impl Into<Option<usize>>) -> i16 {
+        (self.get_constant(col, row).to_u32() & 0xffffu32) as i16
+    }
+
+    fn scalar_u16(&self, col: impl Into<Option<usize>>, row: impl Into<Option<usize>>) -> u16 {
+        (self.get_constant(col, row).to_u32() & 0xffffu32) as u16
+    }
+
+    fn scalar_f16(&self, col: impl Into<Option<usize>>, row: impl Into<Option<usize>>) -> f32 {
+        Self::f16_to_f32(self.scalar_u16(col, row))
+    }
+
+    fn scalar_i32(&self, col: impl Into<Option<usize>>, row: impl Into<Option<usize>>) -> i32 {
+        self.get_constant(col, row).to_i32()
+    }
+
+    fn scalar_f32(&self, col: impl Into<Option<usize>>, row: impl Into<Option<usize>>) -> f32 {
+        self.get_constant(col, row).to_f32()
+    }
+
+    fn scalar_i64(&self, col: impl Into<Option<usize>>, row: impl Into<Option<usize>>) -> i64 {
+        self.get_constant(col, row).to_i64()
+    }
+
+    fn scalar_u64(&self, col: impl Into<Option<usize>>, row: impl Into<Option<usize>>) -> u64 {
+        self.get_constant(col, row).to_u64()
+    }
+
+    fn scalar_f64(&self, col: impl Into<Option<usize>>, row: impl Into<Option<usize>>) -> f64 {
+        self.get_constant(col, row).to_f64()
+    }
+
+    fn vector(&self) -> ConstantVector {
+        *self.m.c[0]
+    }
+
+    fn vector_size(&self) -> u32 {
+        self.m.c[0].vecsize
+    }
+
+    fn columns(&self) -> u32 {
+        self.m.columns
+    }
+
+    fn make_null(&mut self, constant_type: SpirType) {
+        self.m = ConstantMatrix::default();
+        self.m.columns = constant_type.columns;
+        for column in self.m.c.iter_mut() {
+            column.vecsize = constant_type.vecsize
+        }
+    }
+
+    fn constant_is_null(&self) -> bool {
+        if self.specialization {
+            return false;
+        }
+        if !self.subconstants.is_empty() {
+            return false;
+        }
+
+        for col in 0..self.columns() {
+            for row in 0..self.vector_size() {
+                if self.scalar_u64(col, row) != 0 {
+                    return false;
+                }
+            }
+        }
+
+        true
     }
 }
 
