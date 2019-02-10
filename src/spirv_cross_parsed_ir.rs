@@ -9,11 +9,11 @@ use crate::spirv_common::{
 use crate::spirv as spv;
 
 enum BlockMetaFlagBits {
-    BLOCK_META_LOOP_HEADER_BIT = 1 << 0,
-    BLOCK_META_CONTINUE_BIT = 1 << 1,
-    BLOCK_META_LOOP_MERGE_BIT = 1 << 2,
-    BLOCK_META_SELECTION_MERGE_BIT = 1 << 3,
-    BLOCK_META_MULTISELECT_MERGE_BIT = 1 << 4,
+    BLOCK_META_LOOP_HEADER_BIT = 1 << 0,       // 1
+    BLOCK_META_CONTINUE_BIT = 1 << 1,          // 2
+    BLOCK_META_LOOP_MERGE_BIT = 1 << 2,        // 4
+    BLOCK_META_SELECTION_MERGE_BIT = 1 << 3,   // 8
+    BLOCK_META_MULTISELECT_MERGE_BIT = 1 << 4, // 16
 }
 type BlockMetaFlags = u8;
 

@@ -150,17 +150,11 @@ impl Default for Instruction {
     }
 }
 
-struct IVariant {
-    _self: u32,
-}
-
-impl Default for IVariant {
-    fn default() -> Self {
-        IVariant { _self: 0 }
+trait IVariant {
+    fn get_self(&self) -> u32 {
+        0
     }
 }
-
-
 
 #[derive(Clone, Copy)]
 pub enum Types {
@@ -180,33 +174,38 @@ pub enum Types {
     TypeCount,
 }
 
-use Types::TypeUndef;
-
 #[derive(Clone)]
 struct SPIRUndef {
-    _type: Types,
     basetype: u32,
 }
 
+impl IVariant for SPIRUndef {}
+
 #[derive(Clone)]
 impl SPIRUndef {
+    fn get_type() -> Types {
+        Types::TypeUndef
+    }
     fn new(basetype: u32) -> Self {
-        SPIRUndef { _type: Types::TypeUndef, basetype }
+        SPIRUndef { basetype }
     }
 }
 
 struct SPIRCombinedImageSampler {
-    _type: Types,
     combined_type: u32,
     image: u32,
     sampler: u32,
 
 }
 
+impl IVariant for SPIRCombinedImageSampler {}
+
 impl SPIRCombinedImageSampler {
+    fn get_type() -> Types {
+        Types::TypeCombinedImageSampler
+    }
     fn new(type_: u32, image: u32, sampler: u32) -> Self {
         SPIRCombinedImageSampler {
-            _type: Types::TypeCombinedImageSampler,
             combined_type: type_,
             image,
             sampler,
@@ -216,16 +215,19 @@ impl SPIRCombinedImageSampler {
 
 #[derive(Clone)]
 struct SPIRConstantOp {
-    _type: Types,
     opcode: spv::Op,
     arguments: Vec<u32>,
     basetype: u32,
 }
 
+impl IVariant for SPIRConstantOp {}
+
 impl SPIRConstantOp {
+    fn get_type() -> Types {
+        Types::TypeConstantOp
+    }
     fn new(result_type: u32, op: spv::Op, args: Vec<u32>) -> Self {
         SPIRConstantOp {
-            _type: Types::TypeConstantOp,
             opcode: op,
             arguments: args,
             basetype: result_type,
@@ -269,8 +271,6 @@ struct ImageType {
 }
 
 struct SpirType {
-    _type: Types,
-
     // Scalar/vector/matrix support.
     basetype: BaseType,
     width: u32,
@@ -311,10 +311,17 @@ struct SpirType {
     member_name_cache: HashSet<String>,
 }
 
+impl IVariant for SpirType {}
+
+impl SpirType {
+    fn get_type() -> Types {
+        Types::TypeType
+    }
+}
+
 impl Default for SpirType {
     fn default() -> Self {
         SpirType {
-            _type: Types::TypeType,
             basetype: BaseType::Unknown,
             width: 0,
             vecsize: 1,
@@ -344,14 +351,17 @@ enum Extension {
 
 #[derive(Clone)]
 struct SPIRExtension {
-    _type: Types,
     ext: Extension,
 }
 
+impl IVariant for SPIRExtension {}
+
 impl SPIRExtension {
+    fn get_type() -> Types {
+        Types:: TypeExtension
+    }
     fn new(ext: Extension) -> Self {
         SPIRExtension {
-            _type: Types:: TypeExtension,
             ext,
         }
     }
@@ -388,8 +398,14 @@ pub struct SPIREntryPoint {
     model: spv::ExecutionModel,
 }
 
+impl IVariant for SPIREntryPoint {
+    fn get_self(&self) -> u32 {
+        self._self
+    }
+}
 
-
+// SPIREntryPoint is not a variant since its IDs are used to decorate OpFunction,
+// so in order to avoid conflicts, we can't stick them in the ids array.
 impl SPIREntryPoint {
     pub fn new(
         _self: u32,
@@ -411,7 +427,6 @@ impl SPIREntryPoint {
 }
 
 struct SPIRExpression {
-    _type: Types,
     // If non-zero, prepend expression with to_expression(base_expression).
     // Used in amortizing multiple calls to to_expression()
     // where in certain cases that would quickly force a temporary when not needed.
@@ -445,10 +460,14 @@ struct SPIRExpression {
     implied_read_expressions: Vec<u32>,
 }
 
+impl IVariant for SPIRExpression {}
+
 impl SPIRExpression {
+    fn get_type() -> Types {
+        Types::TypeExpression
+    }
     fn new(expression: String, expression_type: u32, immutable: bool) -> Self {
         SPIRExpression {
-            _type: Types::TypeExpression,
             expression,
             expression_type,
             immutable,
@@ -463,15 +482,18 @@ impl SPIRExpression {
 }
 
 struct SPIRFunctionPrototype {
-    _type: Types,
     return_type: u32,
     parameter_types: Vec<u32>,
 }
 
+impl IVariant for SPIRFunctionPrototype {}
+
 impl SPIRFunctionPrototype {
+    fn get_type() -> Types {
+        Types::TypeFunctionPrototype
+    }
     fn new(return_type: u32) -> Self {
         SPIRFunctionPrototype {
-            _type: Types::TypeFunctionPrototype,
             return_type,
             parameter_types: vec![],
         }
@@ -540,10 +562,7 @@ struct Case {
     block: u32,
 }
 
-
-
 struct SPIRBlock {
-    _type: Types,
     terminator: Terminator,
     merge: Merge,
     hint: Hints,
@@ -601,10 +620,17 @@ struct SPIRBlock {
     invalidate_expressions: Vec<u32>,
 }
 
+impl IVariant for SPIRBlock {}
+
+impl SPIRBlock {
+    fn get_type() -> Types {
+        Types::TypeBlock
+    }
+}
+
 impl Default for SPIRBlock {
     fn default() -> Self {
         SPIRBlock {
-            _type: Types::TypeBlock,
             terminator: Terminator::Unknown,
             merge: Merge::MergeNone,
             hint: Hints::HintNone,
@@ -664,7 +690,6 @@ struct CombinedImageSamplerParameter {
 }
 
 struct SPIRFunction {
-    _type: Types,
     return_type: u32,
     function_type: u32,
     arguments: Vec<Parameter>,
@@ -698,10 +723,14 @@ struct SPIRFunction {
     do_combined_parameter: bool,
 }
 
+impl IVariant for SPIRFunction {}
+
 impl SPIRFunction {
+    fn get_type() -> Types {
+        Types::TypeFunction
+    }
     fn new(return_type: u32, function_type: u32) -> Self {
         SPIRFunction {
-            _type: Types::TypeFunction,
             return_type,
             function_type,
             arguments: vec![],
@@ -742,7 +771,6 @@ impl SPIRFunction {
 }
 
 struct SPIRAccessChain {
-    _type: Types,
     basetype: u32,
     storage: spv::StorageClass,
     base: String,
@@ -759,7 +787,12 @@ struct SPIRAccessChain {
     implied_read_expressions: Vec<u32>,
 }
 
+impl IVariant for SPIRAccessChain {}
+
 impl SPIRAccessChain {
+    fn get_type() -> Types {
+        Types::TypeAccessChain
+    }
     fn new(
         basetype: u32,
         storage: spv::StorageClass,
@@ -768,7 +801,6 @@ impl SPIRAccessChain {
         static_index: i32,
     ) -> Self {
         SPIRAccessChain {
-            _type: Types::TypeAccessChain,
             basetype,
             storage,
             base,
@@ -784,7 +816,6 @@ impl SPIRAccessChain {
 }
 
 struct SPIRVariable {
-    _type: Types,
     basetype: u32,
     storage: spv::StorageClass,
     decoration: u32,
@@ -826,7 +857,12 @@ struct SPIRVariable {
     parameter: Option<Parameter>,
 }
 
+impl IVariant for SPIRVariable {}
+
 impl SPIRVariable {
+    fn get_type() -> Types {
+        Types::TypeVariable
+    }
     fn new(
         basetype: u32,
         storage: spv::StorageClass,
@@ -838,7 +874,6 @@ impl SPIRVariable {
         let basevariable = (basevariable as Option<u32>)
             .unwrap_or(0);
         SPIRVariable {
-            _type: Types::TypeVariable,
             basetype,
             storage,
             initializer,
@@ -938,7 +973,6 @@ impl Default for ConstantMatrix {
 }
 
 struct SPIRConstant {
-    _type: Types,
     constant_type: u32,
     m: ConstantMatrix,
 
@@ -960,10 +994,14 @@ struct SPIRConstant {
     specialization_constant_macro_name: String,
 }
 
+impl IVariant for SPIRConstant {}
+
 impl SPIRConstant {
+    fn get_type() -> Types {
+        Types::TypeConstant
+    }
     fn new(constant_type: u32) -> Self {
         SPIRConstant {
-            _type: Types::TypeConstant,
             constant_type,
             m: ConstantMatrix::default(),
             specialization: false,
@@ -980,7 +1018,6 @@ impl SPIRConstant {
         specialized: bool,
     ) -> Self {
         SPIRConstant {
-            _type: Types::TypeConstant,
             constant_type,
             m: ConstantMatrix::default(),
             specialization: specialized,
@@ -998,7 +1035,6 @@ impl SPIRConstant {
         specialized: bool,
     ) -> Self {
         let mut constant = SPIRConstant {
-            _type: Types::TypeConstant,
             constant_type,
             m: ConstantMatrix::default(),
             specialization: specialized,
@@ -1020,7 +1056,6 @@ impl SPIRConstant {
         specialized: bool,
     ) -> Self {
         let mut constant = SPIRConstant {
-            _type: Types::TypeConstant,
             constant_type,
             m: ConstantMatrix::default(),
             specialization: specialized,
@@ -1041,7 +1076,6 @@ impl SPIRConstant {
         specialized: bool,
     ) -> Self {
         let mut constant = SPIRConstant {
-            _type: Types::TypeConstant,
             constant_type,
             m: ConstantMatrix::default(),
             specialization: specialized,
@@ -1213,25 +1247,42 @@ impl SPIRConstant {
 }
 
 pub struct Variant {
-    holder: IVariant,
+    holder: Option<IVariant>,
     _type: Types,
     allow_type_rewrite: bool,
 }
 
 impl Variant {
-    pub fn set(&mut self, new_type: Types) {
+    pub fn set(&mut self, val: impl IVariant, new_type: Types) {
         if !self.allow_type_rewrite && self._type != Types::TypeNone && self._type != new_type {
             panic!("Overwriting a variant with new type.");
         }
+        self.holder = Some(val);
         self._type = new_type;
         self.allow_type_rewrite = false;
+    }
+    pub fn get(&self) -> impl IVariant {
+        self.holder.unwrap()
     }
 
     pub fn get_type(&self) -> Types {
         self._type
     }
 
+    pub fn get_id(&self) -> u32 {
+        if let Some(ref holder) = self.holder {
+            holder.get_self()
+        } else {
+            0
+        }
+    }
+
+    pub fn empty(&self) -> bool {
+        self.holder.is_none()
+    }
+
     pub fn reset(&mut self) {
+        self.holder = None;
         self._type = Types::TypeNone;
     }
 
@@ -1240,9 +1291,46 @@ impl Variant {
     }
 }
 
+impl Default for Variant {
+    fn default() -> Self {
+        Self {
+            holder: None,
+            _type: Types::TypeNone,
+            allow_type_rewrite: false,
+        }
+    }
+}
+
+struct AccessChainMeta {
+    storage_packed_type: u32,
+    need_transpose: bool,
+    storage_is_packed: bool,
+    storage_is_invariant: bool,
+}
+
+impl Default for AccessChainMeta {
+    fn default() -> Self {
+        Self {
+            storage_packed_type: 0,
+            need_transpose: false,
+            storage_is_packed: false,
+            storage_is_invariant: false,
+        }
+    }
+}
+
 struct DecorationExtended {
     packed: bool,
     packed_type: u32,
+}
+
+impl Default for DecorationExtended {
+    fn default() -> Self {
+        Self {
+            packed_type: 0,
+            packed: false,
+        }
+    }
 }
 
 pub struct Decoration {
@@ -1260,10 +1348,35 @@ pub struct Decoration {
     matrix_stride: u32,
     input_attachment: u32,
     spec_id: u32,
-    idex: u32,
+    index: u32,
     fp_rounding_mode: spv::FPRoundingMode,
     builtin: bool,
     extended: DecorationExtended,
+}
+
+impl Default for Decoration {
+    fn default() -> Self {
+        Self {
+            alias: String::new(),
+            qualified_alias: String::new(),
+            hlsl_semantic: String::new(),
+            decoration_flags: Bitset::default(),
+            builtin_type: spv::BuiltIn::BuiltInMax,
+            location: 0,
+            component: 0,
+            set: 0,
+            binding: 0,
+            offset: 0,
+            array_stride: 0,
+            matrix_stride: 0,
+            input_attachment: 0,
+            spec_id: 0,
+            index: 0,
+            fp_rounding_mode: spv::FPRoundingMode::FPRoundingModeMax,
+            builtin: false,
+            extended: DecorationExtended::default(),
+        }
+    }
 }
 
 pub struct Meta {
@@ -1274,3 +1387,80 @@ pub struct Meta {
     hlsl_magic_counter_buffer: u32,
 }
 
+impl Default for Meta {
+    fn default() -> Self {
+        Self {
+            decoration: Decoration::default(),
+            members: Vec::new(),
+            decoration_word_offset: HashMap::new(),
+            hlsl_is_magic_counter_buffer: false,
+            hlsl_magic_counter_buffer: 0,
+        }
+    }
+}
+
+// A user callback that remaps the type of any variable.
+// var_name is the declared name of the variable.
+// name_of_type is the textual name of the type which will be used in the code unless written to by the callback.
+type VariableTypeRemapCallback = Fn(&SpirType, &String, String) -> bool;
+
+struct Hasher {
+    h: u64,
+}
+
+impl Hasher {
+    fn u32(&mut self, value: u32) {
+        self.h = (self.h * 0x100000001b3u64) ^ value;
+    }
+    fn get(&self) -> u64 {
+        self.h
+    }
+}
+
+fn type_is_floating_point(_type: &SpirType) -> bool {
+    _type.basetype == SPIRType::Half ||
+    _type.basetype == SPIRType::Float ||
+    _type.basetype == SPIRType::Double
+}
+
+fn type_is_integral(_type: &SpirType) -> bool {
+    _type.basetype == SPIRType::SByte || _type.basetype == SPIRType::UByte || _type.basetype == SPIRType::Short ||
+    _type.basetype == SPIRType::UShort || _type.basetype == SPIRType::Int || _type.basetype == SPIRType::UInt ||
+    _type.basetype == SPIRType::Int64 || _type.basetype == SPIRType::UInt64
+}
+
+fn to_signed_basetype(width: u32) -> BaseType {
+    match width {
+        8 => BaseType::SByte,
+        16 => BaseType::Short,
+        32 => BaseType::Int,
+        64 => BaseType::Int64,
+        _ => panic!("Invalid bit width."),
+    }
+}
+
+fn to_unsigned_basetype(width: u32) -> BaseType {
+    match width {
+        8 => BaseType::UByte,
+        16 => BaseType::UShort,
+        32 => BaseType::UInt,
+        64 => BaseType::UInt64,
+        _ => panic!("Invalid bit width."),
+    }
+}
+
+// Returns true if an arithmetic operation does not change behavior depending on signedness.
+fn opcode_is_sign_invariant(opcode: spv::Op) -> bool {
+    match opcode {
+        spv::OpIEqual => true,
+        spv::OpINotEqual => true,
+        spv::OpISub => true,
+        spv::OpIAdd => true,
+        spv::OpIMul => true,
+        spv::OpShiftLeftLogical => true,
+        spv::OpBitwiseOr => true,
+        spv::OpBitwiseXor => true,
+        spv::OpBitwiseAnd => true,
+        _ => false,
+    }
+}
