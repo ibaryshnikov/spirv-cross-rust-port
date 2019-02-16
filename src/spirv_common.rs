@@ -815,7 +815,7 @@ impl SPIRAccessChain {
     }
 }
 
-struct SPIRVariable {
+pub struct SPIRVariable {
     basetype: u32,
     storage: spv::StorageClass,
     decoration: u32,
@@ -1334,7 +1334,7 @@ impl Default for DecorationExtended {
 }
 
 pub struct Decoration {
-    alias: String,
+    pub alias: String,
     qualified_alias: String,
     hlsl_semantic: String,
     decoration_flags: Bitset,
@@ -1380,7 +1380,7 @@ impl Default for Decoration {
 }
 
 pub struct Meta {
-    decoration: Decoration,
+    pub decoration: Decoration,
     members: Vec<Decoration>,
     decoration_word_offset: HashMap<u32, u32>,
     hlsl_is_magic_counter_buffer: bool,
