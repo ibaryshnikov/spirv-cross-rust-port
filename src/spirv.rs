@@ -319,6 +319,7 @@ pub enum FunctionParameterAttribute {
     FunctionParameterAttributeMax = 0x7fffffff,
 }
 
+#[derive(Clone, Copy)]
 pub enum Decoration {
     DecorationRelaxedPrecision = 0,
     DecorationSpecId = 1,

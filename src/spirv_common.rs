@@ -5,7 +5,7 @@ use crate::spirv as spv;
 
 struct CompilerError(String);
 
-struct Bitset {
+pub struct Bitset {
     // The most common bits to set are all lower than 64,
     // so optimize for this case. Bits spilling outside 64 go into a slower data structure.
 	// In almost all cases, higher data structure will not be used.
@@ -24,7 +24,7 @@ impl Bitset {
         Bitset { lower, higher: HashSet::new() }
     }
 
-    fn get(&self, bit: u32) -> bool {
+    pub fn get(&self, bit: u32) -> bool {
         if bit < 64 {
             (self.lower & (1u64 << bit)) != 0
         } else {
@@ -32,7 +32,7 @@ impl Bitset {
         }
     }
 
-    fn set(&mut self, bit: u32) {
+    pub fn set(&mut self, bit: u32) {
         if bit < 64 {
             self.lower |= 1u64 << bit;
         } else {
@@ -40,12 +40,12 @@ impl Bitset {
         }
     }
 
-    fn clear(&mut self) {
+    pub fn clear(&mut self, bit: u32) {
         if bit < 64 {
             // how to do bitwise invert, like "~" operator
             self.lower &= !(1u64 << bit);
         } else {
-            self.higher.remove(bit);
+            self.higher.remove(&bit);
         }
     }
 
@@ -58,7 +58,7 @@ impl Bitset {
         self.higher.clear();
     }
 
-    fn merge_and(&mut self, other: &Bitset) {
+    pub fn merge_and(&mut self, other: &Bitset) {
         self.lower &= other.lower;
         let mut tmp_set = HashSet::new();
         for v in self.higher {
@@ -69,7 +69,7 @@ impl Bitset {
         self.higher = tmp_set;
     }
 
-    fn merge_or(&mut self, other: &Bitset) {
+    pub fn merge_or(&mut self, other: &Bitset) {
         self.lower |= other.lower;
         for v in other.higher {
             self.higher.insert(v);
@@ -137,11 +137,11 @@ fn merge(list: &Vec<String>) -> String {
 }
 
 
-struct Instruction {
-    op: u16,
-    count: u16,
-    offset: u32,
-    length: u32,
+pub struct Instruction {
+    pub op: u16,
+    pub count: u16,
+    pub offset: u32,
+    pub length: u32,
 }
 
 impl Default for Instruction {
@@ -150,7 +150,7 @@ impl Default for Instruction {
     }
 }
 
-trait IVariant {
+pub trait IVariant {
     fn get_self(&self) -> u32 {
         0
     }
@@ -214,9 +214,9 @@ impl SPIRCombinedImageSampler {
 }
 
 #[derive(Clone)]
-struct SPIRConstantOp {
+pub struct SPIRConstantOp {
     opcode: spv::Op,
-    arguments: Vec<u32>,
+    pub arguments: Vec<u32>,
     basetype: u32,
 }
 
@@ -235,7 +235,7 @@ impl SPIRConstantOp {
     }
 }
 
-enum BaseType {
+pub enum BaseType {
     Unknown,
     Void,
     Boolean,
@@ -270,9 +270,9 @@ struct ImageType {
     access: spv::AccessQualifier,
 }
 
-struct SpirType {
+pub struct SpirType {
     // Scalar/vector/matrix support.
-    basetype: BaseType,
+    pub basetype: BaseType,
     width: u32,
     vecsize: u32,
     columns: u32,
@@ -294,7 +294,7 @@ struct SpirType {
 
     storage: spv::StorageClass,
 
-    member_types: Vec<u32>,
+    pub member_types: Vec<u32>,
 
     image: ImageType,
 
@@ -562,7 +562,7 @@ struct Case {
     block: u32,
 }
 
-struct SPIRBlock {
+pub struct SPIRBlock {
     terminator: Terminator,
     merge: Merge,
     hint: Hints,
@@ -689,7 +689,7 @@ struct CombinedImageSamplerParameter {
     depth: bool,
 }
 
-struct SPIRFunction {
+pub struct SPIRFunction {
     return_type: u32,
     function_type: u32,
     arguments: Vec<Parameter>,
@@ -816,7 +816,7 @@ impl SPIRAccessChain {
 }
 
 pub struct SPIRVariable {
-    basetype: u32,
+    pub basetype: u32,
     storage: spv::StorageClass,
     decoration: u32,
     initializer: u32,
@@ -972,14 +972,14 @@ impl Default for ConstantMatrix {
     }
 }
 
-struct SPIRConstant {
+pub struct SPIRConstant {
     constant_type: u32,
     m: ConstantMatrix,
 
     // If this constant is a specialization constant (i.e. created with OpSpecConstant*).
     specialization: bool,
     // If this constant is used as an array length which creates specialization restrictions on some backends.
-    is_used_as_array_length: bool,
+    pub is_used_as_array_length: bool,
 
     // If true, this is a LUT, and should always be declared in the outer scope.
     is_used_as_lut: bool,
@@ -1247,7 +1247,7 @@ impl SPIRConstant {
 }
 
 pub struct Variant {
-    holder: Option<IVariant>,
+    pub holder: Option<IVariant>,
     _type: Types,
     allow_type_rewrite: bool,
 }
@@ -1336,21 +1336,21 @@ impl Default for DecorationExtended {
 pub struct Decoration {
     pub alias: String,
     qualified_alias: String,
-    hlsl_semantic: String,
-    decoration_flags: Bitset,
-    builtin_type: spv::BuiltIn,
-    location: u32,
-    component: u32,
-    set: u32,
-    binding: u32,
-    offset: u32,
-    array_stride: u32,
-    matrix_stride: u32,
-    input_attachment: u32,
-    spec_id: u32,
-    index: u32,
-    fp_rounding_mode: spv::FPRoundingMode,
-    builtin: bool,
+    pub hlsl_semantic: String,
+    pub decoration_flags: Bitset,
+    pub builtin_type: spv::BuiltIn,
+    pub location: u32,
+    pub component: u32,
+    pub set: u32,
+    pub binding: u32,
+    pub offset: u32,
+    pub array_stride: u32,
+    pub matrix_stride: u32,
+    pub input_attachment: u32,
+    pub spec_id: u32,
+    pub index: u32,
+    pub fp_rounding_mode: spv::FPRoundingMode,
+    pub builtin: bool,
     extended: DecorationExtended,
 }
 
@@ -1381,10 +1381,10 @@ impl Default for Decoration {
 
 pub struct Meta {
     pub decoration: Decoration,
-    members: Vec<Decoration>,
+    pub members: Vec<Decoration>,
     decoration_word_offset: HashMap<u32, u32>,
-    hlsl_is_magic_counter_buffer: bool,
-    hlsl_magic_counter_buffer: u32,
+    pub hlsl_is_magic_counter_buffer: bool,
+    pub hlsl_magic_counter_buffer: u32,
 }
 
 impl Default for Meta {
