@@ -156,6 +156,10 @@ pub trait IVariant {
     }
 }
 
+pub trait HasType {
+    fn get_type() -> Type;
+}
+
 #[derive(Clone, Copy)]
 pub enum Types {
     TypeNone,
@@ -175,17 +179,19 @@ pub enum Types {
 }
 
 #[derive(Clone)]
-struct SPIRUndef {
+pub struct SPIRUndef {
     basetype: u32,
 }
 
 impl IVariant for SPIRUndef {}
-
-#[derive(Clone)]
-impl SPIRUndef {
+impl HasType for SPIRUndef {
     fn get_type() -> Types {
         Types::TypeUndef
     }
+}
+
+#[derive(Clone)]
+impl SPIRUndef {
     fn new(basetype: u32) -> Self {
         SPIRUndef { basetype }
     }
@@ -199,11 +205,13 @@ struct SPIRCombinedImageSampler {
 }
 
 impl IVariant for SPIRCombinedImageSampler {}
-
-impl SPIRCombinedImageSampler {
+impl HasType for SPIRCombinedImageSampler {
     fn get_type() -> Types {
         Types::TypeCombinedImageSampler
     }
+}
+
+impl SPIRCombinedImageSampler {
     fn new(type_: u32, image: u32, sampler: u32) -> Self {
         SPIRCombinedImageSampler {
             combined_type: type_,
@@ -221,11 +229,13 @@ pub struct SPIRConstantOp {
 }
 
 impl IVariant for SPIRConstantOp {}
-
-impl SPIRConstantOp {
-    fn get_type() -> Types {
+impl HasType for SPIRConstantOp {
+    fn get_type() -> Type {
         Types::TypeConstantOp
     }
+}
+
+impl SPIRConstantOp {
     fn new(result_type: u32, op: spv::Op, args: Vec<u32>) -> Self {
         SPIRConstantOp {
             opcode: op,
@@ -312,8 +322,7 @@ pub struct SpirType {
 }
 
 impl IVariant for SpirType {}
-
-impl SpirType {
+impl HasType for SpirType {
     fn get_type() -> Types {
         Types::TypeType
     }
@@ -355,11 +364,13 @@ struct SPIRExtension {
 }
 
 impl IVariant for SPIRExtension {}
-
-impl SPIRExtension {
+impl HasType for SPIRExtension {
     fn get_type() -> Types {
         Types:: TypeExtension
     }
+}
+
+impl SPIRExtension {
     fn new(ext: Extension) -> Self {
         SPIRExtension {
             ext,
@@ -461,11 +472,13 @@ struct SPIRExpression {
 }
 
 impl IVariant for SPIRExpression {}
-
-impl SPIRExpression {
+impl HasType for SPIRExpression {
     fn get_type() -> Types {
         Types::TypeExpression
     }
+}
+
+impl SPIRExpression {
     fn new(expression: String, expression_type: u32, immutable: bool) -> Self {
         SPIRExpression {
             expression,
@@ -487,11 +500,13 @@ struct SPIRFunctionPrototype {
 }
 
 impl IVariant for SPIRFunctionPrototype {}
-
-impl SPIRFunctionPrototype {
+impl HasType for SPIRFunctionPrototype {
     fn get_type() -> Types {
         Types::TypeFunctionPrototype
     }
+}
+
+impl SPIRFunctionPrototype {
     fn new(return_type: u32) -> Self {
         SPIRFunctionPrototype {
             return_type,
@@ -622,7 +637,7 @@ pub struct SPIRBlock {
 
 impl IVariant for SPIRBlock {}
 
-impl SPIRBlock {
+impl HasType for SPIRBlock {
     fn get_type() -> Types {
         Types::TypeBlock
     }
@@ -724,11 +739,13 @@ pub struct SPIRFunction {
 }
 
 impl IVariant for SPIRFunction {}
-
-impl SPIRFunction {
+impl HasType for SPIRFunction {
     fn get_type() -> Types {
         Types::TypeFunction
     }
+}
+
+impl SPIRFunction {
     fn new(return_type: u32, function_type: u32) -> Self {
         SPIRFunction {
             return_type,
@@ -788,11 +805,13 @@ struct SPIRAccessChain {
 }
 
 impl IVariant for SPIRAccessChain {}
-
-impl SPIRAccessChain {
+impl HasType for SPIRAccessChain {
     fn get_type() -> Types {
         Types::TypeAccessChain
     }
+}
+
+impl SPIRAccessChain {
     fn new(
         basetype: u32,
         storage: spv::StorageClass,
@@ -858,11 +877,13 @@ pub struct SPIRVariable {
 }
 
 impl IVariant for SPIRVariable {}
-
-impl SPIRVariable {
+impl HasType for SPIRVariable {
     fn get_type() -> Types {
         Types::TypeVariable
     }
+}
+
+impl SPIRVariable {
     fn new(
         basetype: u32,
         storage: spv::StorageClass,
@@ -995,11 +1016,13 @@ pub struct SPIRConstant {
 }
 
 impl IVariant for SPIRConstant {}
-
-impl SPIRConstant {
+impl HasType for SPIRConstant {
     fn get_type() -> Types {
         Types::TypeConstant
     }
+}
+
+impl SPIRConstant {
     fn new(constant_type: u32) -> Self {
         SPIRConstant {
             constant_type,
@@ -1253,7 +1276,7 @@ pub struct Variant {
 }
 
 impl Variant {
-    pub fn set(&mut self, val: impl IVariant, new_type: Types) {
+    pub fn set<T: HasType>(&mut self, val: impl IVariang, new_type: Types) {
         if !self.allow_type_rewrite && self._type != Types::TypeNone && self._type != new_type {
             panic!("Overwriting a variant with new type.");
         }
@@ -1261,7 +1284,10 @@ impl Variant {
         self._type = new_type;
         self.allow_type_rewrite = false;
     }
-    pub fn get(&self) -> impl IVariant {
+    pub fn get<T: HasType>(&self) -> T {
+        if T::get_type() != self._type {
+            panic!("Bad cast");
+        }
         self.holder.unwrap()
     }
 

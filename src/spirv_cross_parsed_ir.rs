@@ -5,6 +5,7 @@ use crate::spirv_common::{
     BaseType,
     Bitset,
     Decoration,
+    HasType,
     Meta,
     SPIRConstant,
     SPIRConstantOp,
@@ -26,11 +27,11 @@ enum BlockMetaFlagBits {
 }
 type BlockMetaFlags = u8;
 
-struct Source {
-    version: u32,
-    es: bool,
-    known: bool,
-    hlsl: bool,
+pub struct Source {
+    pub version: u32,
+    pub es: bool,
+    pub known: bool,
+    pub hlsl: bool,
 }
 
 impl Default for Source {
@@ -683,16 +684,15 @@ impl ParsedIR {
         base_flags
     }
 
-    fn add_typed_id(
+    pub fn add_typed_id<T: HasType>(
         &mut self,
-        _type: Types,
         id: u32,
     ) {
         if self.loop_iteration_depth != 0 {
             panic!("Cannot add typed ID while looping over it.");
         }
 
-        match _type {
+        match T::get_type() {
             Types::TypeConstant => {
                 self.ids_for_constant_or_variable.push(id);
                 self.ids_for_constant_or_type.push(id);
@@ -710,14 +710,14 @@ impl ParsedIR {
         }
 
         if self.ids[id as usize].is_empty() {
-            self.ids_for_type[_type as usize]
+            self.ids_for_type[T::get_type() as usize]
                 .push(id);
-        } else if self.ids[id as usize].get_type() != _type {
+        } else if self.ids[id as usize].get_type() != T::get_type() {
             self.remove_typed_id(
-                self.ids[id as usize].get_type,
+                self.ids[id as usize].get_type(),
                 id,
             );
-            self.ids_for_type[_type as usize].push(id);
+            self.ids_for_type[T::get_type() as usize].push(id);
         }
     }
     fn remove_typed_id(
@@ -729,15 +729,15 @@ impl ParsedIR {
         type_ids.retain(|x| *x != id);
     }
 
-    fn for_each_typed_id<T>(&mut self, op: T) {
+    fn for_each_typed_id<T: HasType>(&mut self, op: impl Fn(u32, T)) {
         self.loop_iteration_depth += 1;
 
         // todo: do something with it
-//        for id in self.ids_for_type[T::_type] {
-//            if self.ids[id].get_type() == T::_type {
-//                op(id, self.get<T>(id));
-//            }
-//        }
+        for id in self.ids_for_type[T::get_type() as usize] {
+            if self.ids[id].get_type() == T::get_type() {
+                op(id, self.get::<T>(id));
+            }
+        }
 
         loop_iteration_depth -= 1;
     }
@@ -758,6 +758,9 @@ impl ParsedIR {
         self.empty_string.to_owned()
     }
 
+    fn get<T: HasType>(&self, id: u32) -> T {
+        self.ids[id as usize].get::<T>()
+    }
 }
 
 fn ensure_valid_identifier(

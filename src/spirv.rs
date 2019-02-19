@@ -222,7 +222,6 @@ pub enum ImageChannelOrder {
     ImageChannelOrderABGR = 19,
     ImageChannelOrderMax = 0x7fffffff,
 }
-
 pub enum ImageChannelDataType {
     ImageChannelDataTypeSnormInt8 = 0,
     ImageChannelDataTypeSnormInt16 = 1,
