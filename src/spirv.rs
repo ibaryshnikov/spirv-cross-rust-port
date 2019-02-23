@@ -22,6 +22,9 @@
 // FROM,OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE USE OR OTHER DEALINGS
 // IN THE MATERIALS.
 
+#[macro_use]
+extern crate num_derive;
+
 pub type Id = u32;
 
 pub const SPV_VERSION: u32 = 0x10300;
@@ -33,6 +36,7 @@ pub const REVISION: u32 = 1;
 pub const OP_CODE_MASK: u32 = 0xffff;
 pub const WORD_COUNT_SHIFT: u32 = 16;
 
+#[derive(FromPrimitive)]
 pub enum SourceLanguage {
     SourceLanguageUnknown = 0,
     SourceLanguageESSL = 1,
@@ -43,6 +47,7 @@ pub enum SourceLanguage {
     SourceLanguageMax = 0x7fffffff,
 }
 
+#[derive(FromPrimitive)]
 pub enum ExecutionModel {
     ExecutionModelVertex = 0,
     ExecutionModelTessellationControl = 1,
@@ -68,6 +73,7 @@ pub enum MemoryModel {
     MemoryModelMax = 0x7fffffff,
 }
 
+#[derive(FromPrimitive)]
 pub enum ExecutionMode {
     ExecutionModeInvocations = 0,
     ExecutionModeSpacingEqual = 1,
@@ -318,7 +324,7 @@ pub enum FunctionParameterAttribute {
     FunctionParameterAttributeMax = 0x7fffffff,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, FromPrimitive)]
 pub enum Decoration {
     DecorationRelaxedPrecision = 0,
     DecorationSpecId = 1,
@@ -570,6 +576,7 @@ pub enum KernelProfilingInfoMask {
     KernelProfilingInfoCmdExecTimeMask = 0x00000001,
 }
 
+#[derive(FromPrimitive)]
 pub enum Capability {
     CapabilityMatrix = 0,
     CapabilityShader = 1,
@@ -672,6 +679,7 @@ pub enum Capability {
     CapabilityMax = 0x7fffffff,
 }
 
+#[derive(FromPrimitive)]
 pub enum Op {
     OpNop = 0,
     OpUndef = 1,

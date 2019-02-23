@@ -99,7 +99,7 @@ impl ParsedIR {
         );
     }
 
-    fn set_name(&mut self, id: u32, name: String) {
+    pub fn set_name(&mut self, id: u32, name: String) {
         let meta = self.meta
             .get_mut(&id)
             .unwrap();
@@ -128,7 +128,7 @@ impl ParsedIR {
         }
     }
 
-    fn set_decoration(
+    pub fn set_decoration(
         &mut self,
         id: u32,
         decoration: spv::Decoration,
@@ -193,7 +193,7 @@ impl ParsedIR {
         }
     }
 
-    fn set_decoration_string(
+    pub fn set_decoration_string(
         &mut self,
         id: u32,
         decoration: spv::Decoration,
@@ -354,7 +354,7 @@ impl ParsedIR {
         }
     }
 
-    fn set_member_name(
+    pub fn set_member_name(
         &mut self,
         id: u32,
         index: u32,

@@ -76,11 +76,11 @@ impl Bitset {
         }
     }
 
-    fn for_each_bit<T>(&self, op: T) {
+    pub fn for_each_bit(&self, op: impl Fn(u32) -> ()) {
         // TODO: Add ctz-based iteration.
         for i in 0..64 {
             if lower & (1u64 << i) {
-                op(i);
+                op(i as u32);
             }
         }
 
@@ -349,7 +349,7 @@ impl Default for SpirType {
     }
 }
 
-enum Extension {
+pub enum Extension {
     Unsupported,
     GLSL,
     SPV_AMD_shader_ballot,
@@ -358,8 +358,21 @@ enum Extension {
     SPV_AMD_gcn_shader,
 }
 
+impl Extension {
+    pub fn from_str(value: &str) -> Extension {
+        match value {
+            "GLSL.std.450" => Extension::GLSL,
+            "SPV_AMD_shader_ballot" => Extension::SPV_AMD_shader_ballot,
+            "SPV_AMD_shader_explicit_vertex_parameter" => Extension::SPV_AMD_shader_explicit_vertex_parameter,
+            "SPV_AMD_shader_trinary_minmax" => Extension::SPV_AMD_shader_trinary_minmax,
+            "SPV_AMD_gcn_shader" => Extension::SPV_AMD_gcn_shader,
+            _ => Extension::Unsupported,
+        }
+    }
+}
+
 #[derive(Clone)]
-struct SPIRExtension {
+pub struct SPIRExtension {
     ext: Extension,
 }
 
@@ -379,10 +392,10 @@ impl SPIRExtension {
 }
 
 
-struct WorkgroupSize {
-    x: u32,
-    y: u32,
-    z: u32,
+pub struct WorkgroupSize {
+    pub x: u32,
+    pub y: u32,
+    pub z: u32,
     constant: u32,
 }
 
@@ -399,13 +412,13 @@ impl Default for WorkgroupSize {
 
 pub struct SPIREntryPoint {
     _self: u32,
-    name: String,
+    pub name: String,
     orig_name: String,
-    interface_variables: Vec<u32>,
+    pub interface_variables: Vec<u32>,
     flags: Bitset,
-    workgroup_size: WorkgroupSize,
-    invocations: u32,
-    output_vertices: u32,
+    pub workgroup_size: WorkgroupSize,
+    pub invocations: u32,
+    pub output_vertices: u32,
     model: spv::ExecutionModel,
 }
 
@@ -1408,7 +1421,7 @@ impl Default for Decoration {
 pub struct Meta {
     pub decoration: Decoration,
     pub members: Vec<Decoration>,
-    decoration_word_offset: HashMap<u32, u32>,
+    pub decoration_word_offset: HashMap<u32, u32>,
     pub hlsl_is_magic_counter_buffer: bool,
     pub hlsl_magic_counter_buffer: u32,
 }

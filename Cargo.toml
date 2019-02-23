@@ -5,3 +5,5 @@ authors = ["ibaryshnikov <baryshnikov.il@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+num = "0.2.0"
+num-derive = "0.2.4"
