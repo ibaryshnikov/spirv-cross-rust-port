@@ -79,12 +79,12 @@ impl Bitset {
     pub fn for_each_bit(&self, op: impl Fn(u32) -> ()) {
         // TODO: Add ctz-based iteration.
         for i in 0..64 {
-            if lower & (1u64 << i) {
+            if (self.lower & (1u64 << i)) != 0 {
                 op(i as u32);
             }
         }
 
-        if higher.empty() {
+        if self.higher.is_empty() {
             return;
         }
 
@@ -103,7 +103,7 @@ impl Bitset {
     }
 
     fn empty(&self) -> bool {
-        self.value == 0 && self.higher.len() == 0
+        self.lower == 0 && self.higher.len() == 0
     }
 
 }
@@ -157,7 +157,7 @@ pub trait IVariant {
 }
 
 pub trait HasType {
-    fn get_type() -> Type;
+    fn get_type() -> Types;
 }
 
 #[derive(Clone, Copy)]
@@ -190,7 +190,6 @@ impl HasType for SPIRUndef {
     }
 }
 
-#[derive(Clone)]
 impl SPIRUndef {
     fn new(basetype: u32) -> Self {
         SPIRUndef { basetype }
@@ -230,7 +229,7 @@ pub struct SPIRConstantOp {
 
 impl IVariant for SPIRConstantOp {}
 impl HasType for SPIRConstantOp {
-    fn get_type() -> Type {
+    fn get_type() -> Types {
         Types::TypeConstantOp
     }
 }
@@ -280,7 +279,7 @@ struct ImageType {
     access: spv::AccessQualifier,
 }
 
-pub struct SpirType {
+pub struct SPIRType {
     // Scalar/vector/matrix support.
     pub basetype: BaseType,
     width: u32,
@@ -321,16 +320,16 @@ pub struct SpirType {
     member_name_cache: HashSet<String>,
 }
 
-impl IVariant for SpirType {}
-impl HasType for SpirType {
+impl IVariant for SPIRType {}
+impl HasType for SPIRType {
     fn get_type() -> Types {
         Types::TypeType
     }
 }
 
-impl Default for SpirType {
+impl Default for SPIRType {
     fn default() -> Self {
-        SpirType {
+        SPIRType {
             basetype: BaseType::Unknown,
             width: 0,
             vecsize: 1,
@@ -339,7 +338,7 @@ impl Default for SpirType {
             array_size_literal: vec![],
             pointer_depth: 0,
             pointer: false,
-            storage: spv::StorageClassGeneric,
+            storage: spv::StorageClass::StorageClassGeneric,
             member_types: vec![],
             image: Default::default(),
             type_alias: 0,
@@ -349,6 +348,7 @@ impl Default for SpirType {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum Extension {
     Unsupported,
     GLSL,
@@ -415,7 +415,7 @@ pub struct SPIREntryPoint {
     pub name: String,
     orig_name: String,
     pub interface_variables: Vec<u32>,
-    flags: Bitset,
+    pub flags: Bitset,
     pub workgroup_size: WorkgroupSize,
     pub invocations: u32,
     pub output_vertices: u32,
@@ -528,7 +528,7 @@ impl SPIRFunctionPrototype {
     }
 }
 
-enum Terminator {
+pub enum Terminator {
     Unknown,
     Direct, // Emit next block directly without a particular condition.
 
@@ -540,7 +540,7 @@ enum Terminator {
     Kill, // Discard
 }
 
-enum Merge {
+pub enum Merge {
     MergeNone,
     MergeLoop,
     MergeSelection,
@@ -727,19 +727,19 @@ pub struct SPIRFunction {
 
     shadow_arguments: Vec<Parameter>,
     local_variables: Vec<u32>,
-    entry_block: u32,
+    pub entry_block: u32,
     blocks: Vec<u32>,
     combined_parameters: Vec<CombinedImageSamplerParameter>,
 
     // Hooks to be run when the function returns.
     // Mostly used for lowering internal data structures onto flattened structures.
     // Need to defer this, because they might rely on things which change during compilation.
-    fixup_hooks_out: Vec<impl Fn() -> ()>,
+    fixup_hooks_out: Vec<Box<fn() -> ()>>,
 
     // Hooks to be run when the function begins.
     // Mostly used for populating internal data structures from flattened structures.
     // Need to defer this, because they might rely on things which change during compilation.
-    fixup_hooks_in: Vec<impl Fn() -> ()>,
+    fixup_hooks_in: Vec<Box<fn() -> ()>>,
 
     // On function entry, make sure to copy a constant array into thread addr space to work around
     // the case where we are passing a constant array by value to a function on backends which do not
@@ -788,7 +788,7 @@ impl SPIRFunction {
         id: u32,
         alias_global_variable: impl Into<Option<bool>>,
     ) {
-        let alias_global_variable = (alias_global_variable as Option<bool>).unwrap_or(false);
+        let alias_global_variable = alias_global_variable.into().unwrap_or(false);
         // Arguments are read-only until proven otherwise.
         self.arguments.push(Parameter {
             _type: parameter_type,
@@ -901,11 +901,13 @@ impl SPIRVariable {
         basetype: u32,
         storage: spv::StorageClass,
         initializer: impl Into<Option<u32>>, // 0
-        basevariable: impl Into<Otpion<u32>>, // 0
+        basevariable: impl Into<Option<u32>>, // 0
     ) -> Self {
-        let initializer = (initializer as Option<u32>)
+        let initializer = initializer
+            .into()
             .unwrap_or(0);
-        let basevariable = (basevariable as Option<u32>)
+        let basevariable = basevariable
+            .into()
             .unwrap_or(0);
         SPIRVariable {
             basetype,
@@ -914,8 +916,8 @@ impl SPIRVariable {
             basevariable,
             decoration: 0,
             dereference_chain: vec![],
-            compat_builtin: bool,
-            statically_assigned: bool,
+            compat_builtin: false,
+            statically_assigned: false,
             static_expression: 0,
             dependees: vec![],
             forwardable: true,
@@ -932,15 +934,15 @@ impl SPIRVariable {
     }
 }
 
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 struct Constant(u64);
 
 impl Constant {
     fn from_i32(value: i32) -> Self {
-        Self(u32::from_ne_bytes(value.to_ne_bytes()))
+        Self(u32::from_ne_bytes(value.to_ne_bytes()) as u64)
     }
     fn from_u32(value: u32) -> Self {
-        Self(value)
+        Self(value as u64)
     }
     fn from_i64(value: i64) -> Self {
         Self(u64::from_ne_bytes(value.to_ne_bytes()))
@@ -949,7 +951,7 @@ impl Constant {
         Self(value)
     }
     fn from_f32(value: f32) -> Self {
-        Self(value.to_bits())
+        Self(value.to_bits() as u64)
     }
     fn from_f64(value: f64) -> Self {
         Self(value.to_bits())
@@ -974,6 +976,7 @@ impl Constant {
     }
 }
 
+#[derive(Clone, Copy)]
 struct ConstantVector {
     r: [Constant; 4],
     id: [u32; 4],
@@ -1076,12 +1079,12 @@ impl SPIRConstant {
             specialization: specialized,
             is_used_as_array_length: false,
             is_used_as_lut: false,
-            subconstants: elements,
+            subconstants: vec![],
             specialization_constant_macro_name: String::new(),
         };
         constant.m.c[0].r[0] = Constant::from_u32(v0);
         constant.m.c[0].vecsize = 1;
-        m.columns = 1;
+        constant.m.columns = 1;
         constant
     }
 
@@ -1097,16 +1100,16 @@ impl SPIRConstant {
             specialization: specialized,
             is_used_as_array_length: false,
             is_used_as_lut: false,
-            subconstants: elements,
+            subconstants: vec![],
             specialization_constant_macro_name: String::new(),
         };
         constant.m.c[0].r[0] = Constant::from_u64(v0);
         constant.m.c[0].vecsize = 1;
-        m.columns = 1;
+        constant.m.columns = 1;
         constant
     }
 
-    fn new_with_elements_and_specialization(
+    fn new_with_vector_elements_and_specialization(
         constant_type: u32,
         vector_elements: &Vec<SPIRConstant>,
         specialized: bool,
@@ -1117,7 +1120,7 @@ impl SPIRConstant {
             specialization: specialized,
             is_used_as_array_length: false,
             is_used_as_lut: false,
-            subconstants: elements,
+            subconstants: vec![],
             specialization_constant_macro_name: String::new(),
         };
 
@@ -1136,7 +1139,7 @@ impl SPIRConstant {
             constant.m.c[0].vecsize = vector_elements.len() as u32;
             constant.m.columns = 1;
             for i in 0..vector_elements.len() {
-                constant.m.c[0].r[i] = vector_elements.m.c[0].r[0];
+                constant.m.c[0].r[i] = vector_elements[i].m.c[0].r[0];
                 if vector_elements[i].specialization {
 //                    constant.m.c[0].id[i] = vector_elements[i].self;
                     // TODO: add <_self> from IVariant
@@ -1173,14 +1176,14 @@ impl SPIRConstant {
                 let u: u32 = ((s as u32) << 31) | 0x7f800000u32;
                 return f32::from_bits(u);
             } else {
-                let u: u32 = ((s as u32) << 31) | 0x7f800000u32 | (m << 13);
+                let u: u32 = ((s as u32) << 31) | 0x7f800000u32 | ((m as u32) << 13);
                 return f32::from_bits(u);
             }
         }
 
         e += 127 - 15;
         m <<= 13;
-        let u: u32 = ((s as u32) << 31) | (e << 23) | m;
+        let u: u32 = ((s as u32) << 31) | ((e as u32) << 23) | m as u32;
         return f32::from_bits(u);
     }
 
@@ -1192,10 +1195,10 @@ impl SPIRConstant {
         self.m.id[col]
     }
 
-    fn get_constant(&self, col: Option<usize>, row: Option<usize>) -> Constant {
+    fn get_constant(&self, col: impl Into<Option<usize>>, row: impl Into<Option<usize>>) -> Constant {
         self.m
-            .c[col.unwrap_or(0)]
-            .r[row.unwrap_or(0)]
+            .c[col.into().unwrap_or(0)]
+            .r[row.into().unwrap_or(0)]
     }
 
     fn scalar(&self, col: impl Into<Option<usize>>, row: impl Into<Option<usize>>) -> u32 {
@@ -1231,7 +1234,7 @@ impl SPIRConstant {
     }
 
     fn scalar_i64(&self, col: impl Into<Option<usize>>, row: impl Into<Option<usize>>) -> i64 {
-        self.get_constant(col, row).to_i64()
+        self.get_constant(col.into(), row.into()).to_i64()
     }
 
     fn scalar_u64(&self, col: impl Into<Option<usize>>, row: impl Into<Option<usize>>) -> u64 {
@@ -1243,7 +1246,7 @@ impl SPIRConstant {
     }
 
     fn vector(&self) -> ConstantVector {
-        *self.m.c[0]
+        self.m.c[0]
     }
 
     fn vector_size(&self) -> u32 {
@@ -1254,7 +1257,7 @@ impl SPIRConstant {
         self.m.columns
     }
 
-    fn make_null(&mut self, constant_type: SpirType) {
+    fn make_null(&mut self, constant_type: SPIRType) {
         self.m = ConstantMatrix::default();
         self.m.columns = constant_type.columns;
         for column in self.m.c.iter_mut() {
@@ -1270,8 +1273,8 @@ impl SPIRConstant {
             return false;
         }
 
-        for col in 0..self.columns() {
-            for row in 0..self.vector_size() {
+        for col in 0..self.columns() as usize {
+            for row in 0..self.vector_size() as usize {
                 if self.scalar_u64(col, row) != 0 {
                     return false;
                 }
@@ -1283,22 +1286,22 @@ impl SPIRConstant {
 }
 
 pub struct Variant {
-    pub holder: Option<IVariant>,
+    pub holder: Option<Box<IVariant>>,
     _type: Types,
     allow_type_rewrite: bool,
 }
 
 impl Variant {
-    pub fn set<T: HasType>(&mut self, val: impl IVariang, new_type: Types) {
-        if !self.allow_type_rewrite && self._type != Types::TypeNone && self._type != new_type {
+    pub fn set<T: HasType>(&mut self, val: impl IVariant, new_type: Types) {
+        if !self.allow_type_rewrite && self._type as u32 != Types::TypeNone as u32 && self._type as u32 != new_type as u32 {
             panic!("Overwriting a variant with new type.");
         }
-        self.holder = Some(val);
+        self.holder = Some(Box::new(val));
         self._type = new_type;
         self.allow_type_rewrite = false;
     }
     pub fn get<T: HasType>(&self) -> T {
-        if T::get_type() != self._type {
+        if T::get_type() as u32 != self._type as u32 {
             panic!("Bad cast");
         }
         self.holder.unwrap()
@@ -1441,7 +1444,7 @@ impl Default for Meta {
 // A user callback that remaps the type of any variable.
 // var_name is the declared name of the variable.
 // name_of_type is the textual name of the type which will be used in the code unless written to by the callback.
-type VariableTypeRemapCallback = Fn(&SpirType, &String, String) -> bool;
+type VariableTypeRemapCallback = Fn(&SPIRType, &String, String) -> bool;
 
 struct Hasher {
     h: u64,
@@ -1449,23 +1452,34 @@ struct Hasher {
 
 impl Hasher {
     fn u32(&mut self, value: u32) {
-        self.h = (self.h * 0x100000001b3u64) ^ value;
+        self.h = (self.h * 0x100000001b3u64) ^ (value as u64);
     }
     fn get(&self) -> u64 {
         self.h
     }
 }
 
-fn type_is_floating_point(_type: &SpirType) -> bool {
-    _type.basetype == SPIRType::Half ||
-    _type.basetype == SPIRType::Float ||
-    _type.basetype == SPIRType::Double
+fn type_is_floating_point(_type: &SPIRType) -> bool {
+    match _type.basetype {
+        BaseType::Half => true,
+        BaseType::Float => true,
+        BaseType::Double => true,
+        _ => false,
+    }
 }
 
-fn type_is_integral(_type: &SpirType) -> bool {
-    _type.basetype == SPIRType::SByte || _type.basetype == SPIRType::UByte || _type.basetype == SPIRType::Short ||
-    _type.basetype == SPIRType::UShort || _type.basetype == SPIRType::Int || _type.basetype == SPIRType::UInt ||
-    _type.basetype == SPIRType::Int64 || _type.basetype == SPIRType::UInt64
+fn type_is_integral(_type: &SPIRType) -> bool {
+    match _type.basetype {
+        BaseType::SByte => true,
+        BaseType::UByte => true,
+        BaseType::Short => true,
+        BaseType::UShort => true,
+        BaseType::Int => true,
+        BaseType::UInt => true,
+        BaseType::Int64 => true,
+        BaseType::UInt64 => true,
+        _ => false,
+    }
 }
 
 fn to_signed_basetype(width: u32) -> BaseType {
@@ -1491,15 +1505,15 @@ fn to_unsigned_basetype(width: u32) -> BaseType {
 // Returns true if an arithmetic operation does not change behavior depending on signedness.
 fn opcode_is_sign_invariant(opcode: spv::Op) -> bool {
     match opcode {
-        spv::OpIEqual => true,
-        spv::OpINotEqual => true,
-        spv::OpISub => true,
-        spv::OpIAdd => true,
-        spv::OpIMul => true,
-        spv::OpShiftLeftLogical => true,
-        spv::OpBitwiseOr => true,
-        spv::OpBitwiseXor => true,
-        spv::OpBitwiseAnd => true,
+        spv::Op::OpIEqual => true,
+        spv::Op::OpINotEqual => true,
+        spv::Op::OpISub => true,
+        spv::Op::OpIAdd => true,
+        spv::Op::OpIMul => true,
+        spv::Op::OpShiftLeftLogical => true,
+        spv::Op::OpBitwiseOr => true,
+        spv::Op::OpBitwiseXor => true,
+        spv::Op::OpBitwiseAnd => true,
         _ => false,
     }
 }

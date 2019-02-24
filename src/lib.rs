@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate num_derive;
+
 mod glsl_std_450;
 mod spirv;
 mod spirv_cfg;

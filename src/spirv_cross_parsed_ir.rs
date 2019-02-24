@@ -1,6 +1,8 @@
 use std::cmp::max;
 use std::collections::HashMap;
 
+use num::FromPrimitive;
+
 use crate::spirv_common::{
     BaseType,
     Bitset,
@@ -10,7 +12,7 @@ use crate::spirv_common::{
     SPIRConstant,
     SPIRConstantOp,
     SPIREntryPoint,
-    SpirType,
+    SPIRType,
     SPIRVariable,
     Types,
     IVariant,
@@ -49,7 +51,7 @@ pub struct ParsedIR {
     pub spirv: Vec<u32>,
     pub ids: Vec<Variant>,
     pub meta: HashMap<u32, Meta>,
-    pub ids_for_type: [Vec<u32>; Types::TypeCount as usize],
+    pub ids_for_type: Vec<Vec<u32>>,
     pub ids_for_constant_or_type: Vec<u32>,
     pub ids_for_constant_or_variable: Vec<u32>,
     pub declared_capabilities: Vec<spv::Capability>,
@@ -64,13 +66,21 @@ pub struct ParsedIR {
     cleared_bitset: Bitset,
 }
 
+fn make_ids_of_size(len: usize) -> Vec<Vec<u32>> {
+    let mut result = vec![];
+    for i in 0..len {
+        result.push(vec![]);
+    }
+    result
+}
+
 impl Default for ParsedIR {
     fn default() -> Self {
         ParsedIR {
             spirv: vec![],
             ids: vec![],
             meta: HashMap::new(),
-            ids_for_type: [vec![]; Types::TypeCount],
+            ids_for_type: make_ids_of_size(Types::TypeCount as usize),
             ids_for_constant_or_type: vec![],
             ids_for_constant_or_variable: vec![],
             declared_capabilities: vec![],
@@ -112,7 +122,7 @@ impl ParsedIR {
             return;
         }
 
-        if name[0] == '_' && name.len() >= 2 && isdigit(name[1]) {
+        if name.as_bytes()[0] as char == '_' && name.len() >= 2 && (name.as_bytes()[1] as char).is_digit(10) {
             return;
         }
 
@@ -134,7 +144,7 @@ impl ParsedIR {
         decoration: spv::Decoration,
         argument: impl Into<Option<u32>>,
     ) {
-        let argument = argument.unwrap_or(0);
+        let argument = argument.into().unwrap_or(0);
         let meta = self.meta
             .get_mut(&id)
             .unwrap();
@@ -143,14 +153,14 @@ impl ParsedIR {
 
         dec
             .decoration_flags
-            .set(&decoration as u32);
+            .set(decoration as u32);
 
         use spv::Decoration::*;
 
         match decoration {
             DecorationBuiltIn => {
                 dec.builtin = true;
-                dec.builtin_type = argument;
+                dec.builtin_type = FromPrimitive::from_u32(argument).unwrap();
             }
             DecorationLocation => {
                 dec.location = argument;
@@ -187,7 +197,7 @@ impl ParsedIR {
                 meta.hlsl_is_magic_counter_buffer = true;
             }
             DecorationFPRoundingMode => {
-                dec.fp_rounding_mode = argument;
+                dec.fp_rounding_mode = FromPrimitive::from_u32(argument).unwrap();;
             }
             _ => ()
         }
@@ -225,7 +235,7 @@ impl ParsedIR {
             .get(decoration as u32)
     }
 
-    fn get_decoration(
+    pub fn get_decoration(
         &self,
         id: u32,
         decoration: spv::Decoration,
@@ -244,7 +254,7 @@ impl ParsedIR {
         use spv::Decoration::*;
 
         match decoration {
-            DecorationBuiltIn=> *dec.builtin_type as u32,
+            DecorationBuiltIn=> dec.builtin_type as u32,
             DecorationLocation=> dec.location,
             DecorationComponent=> dec.component,
             DecorationOffset=> dec.offset,
@@ -255,12 +265,12 @@ impl ParsedIR {
             DecorationArrayStride=> dec.array_stride,
             DecorationMatrixStride=> dec.matrix_stride,
             DecorationIndex=> dec.index,
-            DecorationFPRoundingMode=> *dec.fp_rounding_mode as u32,
+            DecorationFPRoundingMode=> dec.fp_rounding_mode as u32,
             _ => 1,
         }
     }
 
-    fn get_decoration_string(
+    pub fn get_decoration_string(
         &self,
         id: u32,
         decoration: spv::Decoration,
@@ -377,9 +387,9 @@ impl ParsedIR {
         }
 
         // Reserved for unnamed members.
-        if name[0] == '_' && name.len() >= 3
-            && name[1] == 'm'
-            && isdigit(name[2]) {
+        if name.as_bytes()[0] as char == '_' && name.len() >= 3
+            && name.as_bytes()[1] as char == 'm'
+            && (name.as_bytes()[2] as char).is_digit(10) {
             return;
         }
 
@@ -390,13 +400,13 @@ impl ParsedIR {
     fn get_member_name(
         &self,
         id: u32,
-        index: u32,
+        index: usize,
     ) -> String {
         if let Some(m) = self.find_meta(id) {
             if index >= m.members.len() {
-                self.empty_string().to_owned()
+                self.empty_string.to_owned()
             } else {
-                m.members[i].alias
+                m.members[index].alias
             }
         } else {
             self.empty_string.to_owned()
@@ -410,7 +420,7 @@ impl ParsedIR {
         decoration: spv::Decoration,
         argument: impl Into<Option<u32>>,
     ) {
-        let argument = argument.unwrap_or(0);
+        let argument = argument.into().unwrap_or(0);
         let meta = self.meta
             .get_mut(&id)
             .unwrap();
@@ -427,7 +437,7 @@ impl ParsedIR {
         match decoration {
             DecorationBuiltIn=> {
                 dec.builtin = true;
-                dec.builtin_type = argument;
+                dec.builtin_type = FromPrimitive::from_u32(argument).unwrap();
             }
             DecorationLocation=> {
                 dec.location = argument;
@@ -497,7 +507,7 @@ impl ParsedIR {
             Some(m) => m,
         };
 
-        if index >= meta.members.len() {
+        if index >= meta.members.len() as u32 {
             return 0;
         }
 
@@ -507,7 +517,7 @@ impl ParsedIR {
         }
 
         match decoration {
-            DecorationBuiltIn=> *dec.builtin_type as u32,
+            DecorationBuiltIn=> dec.builtin_type as u32,
             DecorationLocation=> dec.location,
             DecorationComponent=> dec.component,
             DecorationBinding=> dec.binding,
@@ -559,7 +569,7 @@ impl ParsedIR {
         index: u32,
     ) -> &Bitset {
         if let Some(meta) = self.find_meta(id) {
-            if index >= meta.members.size() {
+            if index >= meta.members.len() as u32 {
                 return &self.cleared_bitset;
             }
             return &meta.members[index as usize]
@@ -578,7 +588,7 @@ impl ParsedIR {
             .get_mut(&id)
             .unwrap();
 
-        if index >= meta.members.len() {
+        if index >= meta.members.len() as u32 {
             return;
         }
 
@@ -639,28 +649,26 @@ impl ParsedIR {
         &mut self,
         incr_amount: u32,
     ) -> u32 {
-        let curr_bound = self.ids.len();
+        let curr_bound = self.ids.len() as u32;
         let new_bound = curr_bound + incr_amount;
         self.ids
             .resize(new_bound, Variant::default());
         self.block_meta
-            .resize(new_bound, BlockMetaFlags::default());
+            .resize(new_bound as usize, BlockMetaFlags::default());
         curr_bound as u32
     }
     fn get_buffer_block_flags(&self, var: SPIRVariable) -> Bitset {
-        let _type = (
-            self.ids[base_type as usize]
-                .holder
-                .unwrap() as SpirType
-            );
-        assert!(_type.basetype == BaseType::Struct);
+        let _type = self.ids[var.basetype as usize]
+            .holder
+            .unwrap() as SPIRType;
+        assert!(_type.basetype as u32 == BaseType::Struct as u32);
 
         // Some flags like non-writable, non-readable are actually found
         // as member decorations. If all members have a decoration set, propagate
         // the decoration up as a regular variable decoration.
         let mut base_flags = Bitset::default();
         if let Some(meta) = self.find_meta(var.get_self()) {
-            base_flags = *meta.decoration.decoration_flags;
+            base_flags = meta.decoration.decoration_flags;
         }
 
         if _type.member_types.is_empty() {
@@ -709,10 +717,10 @@ impl ParsedIR {
             _ => (),
         }
 
-        if self.ids[id as usize].is_empty() {
+        if self.ids[id as usize].empty() {
             self.ids_for_type[T::get_type() as usize]
                 .push(id);
-        } else if self.ids[id as usize].get_type() != T::get_type() {
+        } else if self.ids[id as usize].get_type() as u32 != T::get_type() as u32 {
             self.remove_typed_id(
                 self.ids[id as usize].get_type(),
                 id,
@@ -734,17 +742,17 @@ impl ParsedIR {
 
         // todo: do something with it
         for id in self.ids_for_type[T::get_type() as usize] {
-            if self.ids[id].get_type() == T::get_type() {
+            if self.ids[id as usize].get_type() as u32 == T::get_type() as u32 {
                 op(id, self.get::<T>(id));
             }
         }
 
-        loop_iteration_depth -= 1;
+        self.loop_iteration_depth -= 1;
     }
 
     fn reset_all_of_type(&mut self, _type: Types) {
         for id in self.ids_for_type[_type as usize] {
-            if self.ids[id as usize].get_type() == _type {
+            if self.ids[id as usize].get_type() as u32 == _type as u32 {
                 self.ids[id as usize].reset();
             }
         }
@@ -772,27 +780,27 @@ fn ensure_valid_identifier(
     let mut _str = name[0..name.find('(').unwrap_or(name.len())]
         .to_owned();
     for i in 0.._str.len() {
-        let mut c = _str[i];
+        let mut c = _str.as_bytes()[i] as char;
         if member {
             // _m<num> variables are reserved by the internal implementation,
             // otherwise, make sure the name is a valid identifier.
             if i == 0 {
-                c = if isalpha(c) { c } else { '_' };
-            } else if i == 2 && _str[0] == '_' && _str[1] == 'm' {
-                c = if isalpha(c) { c } else { '_' };
+                c = if c.is_alphabetic() { c } else { '_' };
+            } else if i == 2 && _str.as_bytes()[0] as char == '_' && _str.as_bytes()[1]  as char == 'm' {
+                c = if c.is_alphabetic() { c } else { '_' };
             } else {
-                c = if isalnum(c) { c } else { '_' };
+                c = if c.is_alphanumeric() { c } else { '_' };
             }
         } else {
             // _<num> variables are reserved by the internal implementation,
             // otherwise, make sure the name is a valid identifier.
-            if i == 0 || (_str[0] == '_' && i == 1) {
-                c = if isalpha(c) { c } else { '_' };
+            if i == 0 || (_str.as_bytes()[0] as char == '_' && i == 1) {
+                c = if c.is_alphabetic() { c } else { '_' };
             } else {
-                c = if isalnum(c) { c } else { '_' };
+                c = if c.is_alphanumeric() { c } else { '_' };
             }
         }
-        _str[i] = c;
+        _str.as_bytes()[i] = c as u8;
     }
     return _str;
 }

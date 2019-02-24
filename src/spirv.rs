@@ -22,9 +22,6 @@
 // FROM,OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE USE OR OTHER DEALINGS
 // IN THE MATERIALS.
 
-#[macro_use]
-extern crate num_derive;
-
 pub type Id = u32;
 
 pub const SPV_VERSION: u32 = 0x10300;
@@ -291,6 +288,7 @@ pub enum FPFastMathModeMask {
     FPFastMathModeFastMask = 0x00000010,
 }
 
+#[derive(FromPrimitive)]
 pub enum FPRoundingMode {
     FPRoundingModeRTE = 0,
     FPRoundingModeRTZ = 1,
@@ -382,6 +380,7 @@ pub enum Decoration {
     DecorationMax = 0x7fffffff,
 }
 
+#[derive(FromPrimitive)]
 pub enum BuiltIn {
     BuiltInPosition = 0,
     BuiltInPointSize = 1,
@@ -425,15 +424,15 @@ pub enum BuiltIn {
     BuiltInVertexIndex = 42,
     BuiltInInstanceIndex = 43,
     BuiltInSubgroupEqMask = 4416,
-    BuiltInSubgroupEqMaskKHR = 4416,
+//    BuiltInSubgroupEqMaskKHR = 4416,
     BuiltInSubgroupGeMask = 4417,
-    BuiltInSubgroupGeMaskKHR = 4417,
+//    BuiltInSubgroupGeMaskKHR = 4417,
     BuiltInSubgroupGtMask = 4418,
-    BuiltInSubgroupGtMaskKHR = 4418,
+//    BuiltInSubgroupGtMaskKHR = 4418,
     BuiltInSubgroupLeMask = 4419,
-    BuiltInSubgroupLeMaskKHR = 4419,
+//    BuiltInSubgroupLeMaskKHR = 4419,
     BuiltInSubgroupLtMask = 4420,
-    BuiltInSubgroupLtMaskKHR = 4420,
+//    BuiltInSubgroupLtMaskKHR = 4420,
     BuiltInBaseVertex = 4424,
     BuiltInBaseInstance = 4425,
     BuiltInDrawIndex = 4426,
@@ -649,9 +648,9 @@ pub enum Capability {
     CapabilityDrawParameters = 4427,
     CapabilitySubgroupVoteKHR = 4431,
     CapabilityStorageBuffer16BitAccess = 4433,
-    CapabilityStorageUniformBufferBlock16 = 4433,
+//    CapabilityStorageUniformBufferBlock16 = 4433,
     CapabilityStorageUniform16 = 4434,
-    CapabilityUniformAndStorageBuffer16BitAccess = 4434,
+//    CapabilityUniformAndStorageBuffer16BitAccess = 4434,
     CapabilityStoragePushConstant16 = 4435,
     CapabilityStorageInputOutput16 = 4436,
     CapabilityDeviceGroup = 4437,
@@ -668,7 +667,7 @@ pub enum Capability {
     CapabilitySampleMaskOverrideCoverageNV = 5249,
     CapabilityGeometryShaderPassthroughNV = 5251,
     CapabilityShaderViewportIndexLayerEXT = 5254,
-    CapabilityShaderViewportIndexLayerNV = 5254,
+//    CapabilityShaderViewportIndexLayerNV = 5254,
     CapabilityShaderViewportMaskNV = 5255,
     CapabilityShaderStereoViewNV = 5259,
     CapabilityPerViewAttributesNV = 5260,
@@ -679,7 +678,7 @@ pub enum Capability {
     CapabilityMax = 0x7fffffff,
 }
 
-#[derive(FromPrimitive)]
+#[derive(Clone, Copy, FromPrimitive)]
 pub enum Op {
     OpNop = 0,
     OpUndef = 1,

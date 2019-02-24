@@ -23,7 +23,6 @@ use crate::spirv::{
     SourceLanguage::{self, *},
 };
 use crate::spirv::Capability::CapabilityKernel;
-use crate::spirv::Capability;
 
 struct Parser {
     ir: ParsedIR,
@@ -128,7 +127,7 @@ impl Parser {
             OpCapability => {
                 let cap = FromPrimitive::from_u32(ops[0])
                     .unwrap();
-                if cap == CapabilityKernel {
+                if let CapabilityKernel = cap {
                     panic!("Kernel capability not supported.");
                 }
                 self.ir.declared_capabilities.push(cap);
@@ -167,7 +166,7 @@ impl Parser {
                 // Strings need nul-terminator and consume the whole word.
                 let strlen_words = (entry_point.name.len() + 1 + 3) >> 2;
                 for i in 0..ops[strlen_words + 2] {
-                    entry_point.interface_variables.push(ops[instruction.length]);
+                    entry_point.interface_variables.push(ops[instruction.length as usize]);
                 }
 
 
@@ -179,14 +178,16 @@ impl Parser {
                     self.ir.default_entry_point = ops[1];
                 }
 
-                self.ir.entry_points.insert(ops[1], entry_point)
+                self.ir.entry_points.insert(ops[1], entry_point);
             }
 
             OpExecutionMode => {
-                let mut entry_point = self.ir.entry_points[ops[0]];
+                let mut entry_point = self.ir.entry_points
+                    .get(&ops[0])
+                    .unwrap();
                 let mode = FromPrimitive::from_u32(ops[1])
                     .unwrap();
-                entry_point.flags.set(mode);
+                entry_point.flags.set(mode as u32);
 
                 match mode {
                     ExecutionModeInvocations => {
@@ -200,7 +201,7 @@ impl Parser {
                     }
 
                     ExecutionModeOutputVertices => {
-                        execution.output_vertices = ops[2];
+                        entry_point.output_vertices = ops[2];
                     }
 
                     _ => (),
@@ -225,7 +226,7 @@ impl Parser {
                     id,
                     member,
                     Self::extract_string(
-                        &self.ir.spirve,
+                        &self.ir.spirv,
                         instruction.offset + 2,
                     ),
                 )
@@ -247,15 +248,19 @@ impl Parser {
                 // Copies decorations from one ID to another. Only copy decorations which are set in the group,
                 // i.e., we cannot just copy the meta structure directly.
                 for i in 1..length {
-                    let target = ops[i];
+                    let target = ops[i as usize];
                     flags.for_each_bit(|bit: u32| {
                     let decoration = FromPrimitive::from_u32(bit)
                         .unwrap();
 
                     if Self::decoration_is_string(decoration) {
-                        self.ir.set_decoration_string(target, decoration, ir.get_decoration_string(group_id, decoration));
+                        self.ir.set_decoration_string(
+                            target,
+                            decoration,
+                            self.ir.get_decoration_string(group_id, decoration),
+                        );
                     } else {
-                        self.ir.meta.get_mut(target)
+                        self.ir.meta.get_mut(&target)
                             .unwrap()
                             .decoration_word_offset
                             .insert(
@@ -263,14 +268,22 @@ impl Parser {
                                 self.ir.meta.get(&group_id)
                                     .unwrap()
                                     .decoration_word_offset
-                                    .get(decoration as &u32)
+                                    .get(&(decoration as u32))
                                     .unwrap()
                                     .clone()
                             );
-                        self.ir.set_decoration(target, decoration, ir.get_decoration(group_id, decoration));
+                        self.ir.set_decoration(
+                            target,
+                            decoration,
+                            self.ir.get_decoration(group_id, decoration),
+                        );
                     }
                 });
                 }
+            }
+
+            OpGroupMemberDecorate => {
+                // TODO: continue...
             }
 
         }
@@ -287,7 +300,7 @@ impl Parser {
 
         // Endian-swap if we need to.
         if s[0] == spv::MAGIC_NUMBER.swap_bytes() {
-            s = s
+            s = &s
                 .iter()
                 .map(|x| x.swap_bytes())
                 .collect();
@@ -317,7 +330,7 @@ impl Parser {
             instr.offset = offset as u32 + 1;
             instr.length = instr.count as u32 - 1;
 
-            offset += instr.count;
+            offset += instr.count as usize;
 
             if offset > s.len() {
                 panic!("SPIR-V instruction goes out of bounds.");
@@ -342,7 +355,7 @@ impl Parser {
         // If we're not going to use any arguments, just return nullptr.
         // We want to avoid case where we return an out of range pointer
         // that trips debug assertions on some platforms.
-        if instr.len() == 0 {
+        if instr.length == 0 {
             return None;
         }
 
@@ -355,13 +368,13 @@ impl Parser {
     fn extract_string(spirv: &Vec<u32>, offset: u32) -> String {
         let mut ret = String::new();
 
-        for i in offset..spirv.len() {
+        for i in (offset as usize)..spirv.len() {
             let mut w = spirv[i];
 
             for j in 0..4 {
                 w >>= 8;
 
-                let c: char = w & 0xff;
+                let c: char = (w & 0xff) as u8 as char;
                 if c == '\0' {
                     return ret;
                 }
