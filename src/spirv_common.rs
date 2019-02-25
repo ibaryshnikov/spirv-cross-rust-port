@@ -151,9 +151,8 @@ impl Default for Instruction {
 }
 
 pub trait IVariant {
-    fn get_self(&self) -> u32 {
-        0
-    }
+    fn get_self(&self) -> u32;
+    fn set_self(&mut self, _self: u32);
 }
 
 pub trait HasType {
@@ -178,12 +177,86 @@ pub enum Types {
     TypeCount,
 }
 
+pub enum VariantHolder {
+    SPIRUndef(SPIRUndef),
+    SPIRCombinedImageSampler(SPIRCombinedImageSampler),
+    SPIRConstantOp(SPIRConstantOp),
+    SPIRType(SPIRType),
+    SPIRExtension(SPIRExtension),
+    SPIRExpression(SPIRExpression),
+    SPIRFunctionPrototype(SPIRFunctionPrototype),
+    SPIRBlock(SPIRBlock),
+    SPIRFunction(SPIRFunction),
+    SPIRAccessChain(SPIRAccessChain),
+    SPIRVariable(SPIRVariable),
+    SPIRConstant(SPIRConstant),
+}
+
+impl VariantHolder {
+    pub fn get_self(&self) -> u32 {
+        match self {
+            VariantHolder::SPIRUndef(variant) => variant.get_self(),
+            VariantHolder::SPIRCombinedImageSampler(variant) => variant.get_self(),
+            VariantHolder::SPIRConstantOp(variant) => variant.get_self(),
+            VariantHolder::SPIRType(variant) => variant.get_self(),
+            VariantHolder::SPIRExtension(variant) => variant.get_self(),
+            VariantHolder::SPIRExpression(variant) => variant.get_self(),
+            VariantHolder::SPIRFunctionPrototype(variant) => variant.get_self(),
+            VariantHolder::SPIRBlock(variant) => variant.get_self(),
+            VariantHolder::SPIRFunction(variant) => variant.get_self(),
+            VariantHolder::SPIRAccessChain(variant) => variant.get_self(),
+            VariantHolder::SPIRVariable(variant) => variant.get_self(),
+            VariantHolder::SPIRConstant(variant) => variant.get_self(),
+        }
+    }
+    pub fn set_self(&self, value: u32) {
+        match self {
+            VariantHolder::SPIRUndef(variant) => variant.set_self(value),
+            VariantHolder::SPIRCombinedImageSampler(variant) => variant.set_self(value),
+            VariantHolder::SPIRConstantOp(variant) => variant.set_self(value),
+            VariantHolder::SPIRType(variant) => variant.set_self(value),
+            VariantHolder::SPIRExtension(variant) => variant.set_self(value),
+            VariantHolder::SPIRExpression(variant) => variant.set_self(value),
+            VariantHolder::SPIRFunctionPrototype(variant) => variant.set_self(value),
+            VariantHolder::SPIRBlock(variant) => variant.set_self(value),
+            VariantHolder::SPIRFunction(variant) => variant.set_self(value),
+            VariantHolder::SPIRAccessChain(variant) => variant.set_self(value),
+            VariantHolder::SPIRVariable(variant) => variant.set_self(value),
+            VariantHolder::SPIRConstant(variant) => variant.set_self(value),
+        }
+    }
+    pub fn get_type(&self) -> Types {
+        match self {
+            VariantHolder::SPIRUndef(_) => Types::TypeUndef,
+            VariantHolder::SPIRCombinedImageSampler(_) => Types::TypeCombinedImageSampler,
+            VariantHolder::SPIRConstantOp(_) => Types::TypeConstantOp,
+            VariantHolder::SPIRType(_) => Types::TypeType,
+            VariantHolder::SPIRExtension(_) => Types::TypeExtension,
+            VariantHolder::SPIRExpression(_) => Types::TypeExpression,
+            VariantHolder::SPIRFunctionPrototype(_) => Types::TypeFunctionPrototype,
+            VariantHolder::SPIRBlock(_) => Types::TypeBlock,
+            VariantHolder::SPIRFunction(_) => Types::TypeFunction,
+            VariantHolder::SPIRAccessChain(_) => Types::TypeAccessChain,
+            VariantHolder::SPIRVariable(_) => Types::TypeVariable,
+            VariantHolder::SPIRConstant(_) => Types::TypeConstant,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct SPIRUndef {
     basetype: u32,
+    _self: u32,
 }
 
-impl IVariant for SPIRUndef {}
+impl IVariant for SPIRUndef {
+    fn get_self(&self) -> u32 {
+        self._self
+    }
+    fn set_self(&mut self, _self: u32) {
+        self._self = _self;
+    }
+}
 impl HasType for SPIRUndef {
     fn get_type() -> Types {
         Types::TypeUndef
@@ -192,7 +265,7 @@ impl HasType for SPIRUndef {
 
 impl SPIRUndef {
     fn new(basetype: u32) -> Self {
-        SPIRUndef { basetype }
+        SPIRUndef { basetype, _self: 0 }
     }
 }
 
@@ -200,10 +273,17 @@ struct SPIRCombinedImageSampler {
     combined_type: u32,
     image: u32,
     sampler: u32,
-
+    _self: u32,
 }
 
-impl IVariant for SPIRCombinedImageSampler {}
+impl IVariant for SPIRCombinedImageSampler {
+    fn get_self(&self) -> u32 {
+        self._self
+    }
+    fn set_self(&mut self, _self: u32) {
+        self._self = _self;
+    }
+}
 impl HasType for SPIRCombinedImageSampler {
     fn get_type() -> Types {
         Types::TypeCombinedImageSampler
@@ -216,6 +296,7 @@ impl SPIRCombinedImageSampler {
             combined_type: type_,
             image,
             sampler,
+            _self: 0,
         }
     }
 }
@@ -225,9 +306,17 @@ pub struct SPIRConstantOp {
     opcode: spv::Op,
     pub arguments: Vec<u32>,
     basetype: u32,
+    _self: u32,
 }
 
-impl IVariant for SPIRConstantOp {}
+impl IVariant for SPIRConstantOp {
+    fn get_self(&self) -> u32 {
+        self._self
+    }
+    fn set_self(&mut self, _self: u32) {
+        self._self = _self;
+    }
+}
 impl HasType for SPIRConstantOp {
     fn get_type() -> Types {
         Types::TypeConstantOp
@@ -240,6 +329,7 @@ impl SPIRConstantOp {
             opcode: op,
             arguments: args,
             basetype: result_type,
+            _self: 0,
         }
     }
 }
@@ -282,7 +372,7 @@ struct ImageType {
 pub struct SPIRType {
     // Scalar/vector/matrix support.
     pub basetype: BaseType,
-    width: u32,
+    pub width: u32,
     vecsize: u32,
     columns: u32,
 
@@ -318,9 +408,18 @@ pub struct SPIRType {
 
     // Used in backends to avoid emitting members with conflicting names.
     member_name_cache: HashSet<String>,
+
+    _self: u32,
 }
 
-impl IVariant for SPIRType {}
+impl IVariant for SPIRType {
+    fn get_self(&self) -> u32 {
+        self._self
+    }
+    fn set_self(&mut self, _self: u32) {
+        self._self = _self;
+    }
+}
 impl HasType for SPIRType {
     fn get_type() -> Types {
         Types::TypeType
@@ -344,6 +443,7 @@ impl Default for SPIRType {
             type_alias: 0,
             parent_type: 0,
             member_name_cache: HashSet::new(),
+            _self: 0,
         }
     }
 }
@@ -374,9 +474,17 @@ impl Extension {
 #[derive(Clone)]
 pub struct SPIRExtension {
     ext: Extension,
+    _self: u32,
 }
 
-impl IVariant for SPIRExtension {}
+impl IVariant for SPIRExtension {
+    fn get_self(&self) -> u32 {
+        self._self
+    }
+    fn set_self(&mut self, _self: u32) {
+        self._self = _self;
+    }
+}
 impl HasType for SPIRExtension {
     fn get_type() -> Types {
         Types:: TypeExtension
@@ -387,6 +495,7 @@ impl SPIRExtension {
     fn new(ext: Extension) -> Self {
         SPIRExtension {
             ext,
+            _self: 0,
         }
     }
 }
@@ -420,12 +529,6 @@ pub struct SPIREntryPoint {
     pub invocations: u32,
     pub output_vertices: u32,
     model: spv::ExecutionModel,
-}
-
-impl IVariant for SPIREntryPoint {
-    fn get_self(&self) -> u32 {
-        self._self
-    }
 }
 
 // SPIREntryPoint is not a variant since its IDs are used to decorate OpFunction,
@@ -482,9 +585,18 @@ struct SPIRExpression {
     // By reading this expression, we implicitly read these expressions as well.
     // Used by access chain Store and Load since we read multiple expressions in this case.
     implied_read_expressions: Vec<u32>,
+
+    _self: u32,
 }
 
-impl IVariant for SPIRExpression {}
+impl IVariant for SPIRExpression {
+    fn get_self(&self) -> u32 {
+        self._self
+    }
+    fn set_self(&mut self, _self: u32) {
+        self._self = _self;
+    }
+}
 impl HasType for SPIRExpression {
     fn get_type() -> Types {
         Types::TypeExpression
@@ -503,6 +615,7 @@ impl SPIRExpression {
             access_chain: false,
             expression_dependencies: vec![],
             implied_read_expressions: vec![],
+            _self: 0,
         }
     }
 }
@@ -510,9 +623,17 @@ impl SPIRExpression {
 struct SPIRFunctionPrototype {
     return_type: u32,
     parameter_types: Vec<u32>,
+    _self: u32,
 }
 
-impl IVariant for SPIRFunctionPrototype {}
+impl IVariant for SPIRFunctionPrototype {
+    fn get_self(&self) -> u32 {
+        self._self
+    }
+    fn set_self(&mut self, _self: u32) {
+        self._self = _self;
+    }
+}
 impl HasType for SPIRFunctionPrototype {
     fn get_type() -> Types {
         Types::TypeFunctionPrototype
@@ -524,6 +645,7 @@ impl SPIRFunctionPrototype {
         SPIRFunctionPrototype {
             return_type,
             parameter_types: vec![],
+            _self: 0,
         }
     }
 }
@@ -646,9 +768,18 @@ pub struct SPIRBlock {
     // sub-group-like operations.
     // Make sure that we only use these expressions in the original block.
     invalidate_expressions: Vec<u32>,
+
+    _self: u32,
 }
 
-impl IVariant for SPIRBlock {}
+impl IVariant for SPIRBlock {
+    fn get_self(&self) -> u32 {
+        self._self
+    }
+    fn set_self(&mut self, _self: u32) {
+        self._self = _self;
+    }
+}
 
 impl HasType for SPIRBlock {
     fn get_type() -> Types {
@@ -682,6 +813,7 @@ impl Default for SPIRBlock {
             dominated_variables: vec![],
             loop_variables: vec![],
             invalidate_expressions: vec![],
+            _self: 0,
         }
     }
 }
@@ -749,9 +881,18 @@ pub struct SPIRFunction {
     active: bool,
     flush_undeclare: bool,
     do_combined_parameter: bool,
+
+    _self: u32,
 }
 
-impl IVariant for SPIRFunction {}
+impl IVariant for SPIRFunction {
+    fn get_self(&self) -> u32 {
+        self._self
+    }
+    fn set_self(&mut self, _self: u32) {
+        self._self = _self;
+    }
+}
 impl HasType for SPIRFunction {
     fn get_type() -> Types {
         Types::TypeFunction
@@ -775,6 +916,7 @@ impl SPIRFunction {
             active: false,
             flush_undeclare: true,
             do_combined_parameter: true,
+            _self: 0,
         }
     }
 
@@ -815,9 +957,18 @@ struct SPIRAccessChain {
     // By reading this expression, we implicitly read these expressions as well.
     // Used by access chain Store and Load since we read multiple expressions in this case.
     implied_read_expressions: Vec<u32>,
+
+    _self: u32,
 }
 
-impl IVariant for SPIRAccessChain {}
+impl IVariant for SPIRAccessChain {
+    fn get_self(&self) -> u32 {
+        self._self
+    }
+    fn set_self(&mut self, _self: u32) {
+        self._self = _self;
+    }
+}
 impl HasType for SPIRAccessChain {
     fn get_type() -> Types {
         Types::TypeAccessChain
@@ -843,6 +994,7 @@ impl SPIRAccessChain {
             row_major_matrix: false,
             immutable: false,
             implied_read_expressions: vec![],
+            _self: 0,
         }
     }
 }
@@ -887,9 +1039,18 @@ pub struct SPIRVariable {
     loop_variable_enable: bool,
 
     parameter: Option<Parameter>,
+
+    _self: u32,
 }
 
-impl IVariant for SPIRVariable {}
+impl IVariant for SPIRVariable {
+    fn get_self(&self) -> u32 {
+        self._self
+    }
+    fn set_self(&mut self, _self: u32) {
+        self._self = _self;
+    }
+}
 impl HasType for SPIRVariable {
     fn get_type() -> Types {
         Types::TypeVariable
@@ -930,6 +1091,7 @@ impl SPIRVariable {
             loop_variable: false,
             loop_variable_enable: false,
             parameter: None,
+            _self: 0,
         }
     }
 }
@@ -1029,9 +1191,18 @@ pub struct SPIRConstant {
     // to still be able to specialize the value by supplying corresponding
     // preprocessor directives before compiling the shader.
     specialization_constant_macro_name: String,
+
+    _self: u32,
 }
 
-impl IVariant for SPIRConstant {}
+impl IVariant for SPIRConstant {
+    fn get_self(&self) -> u32 {
+        self._self
+    }
+    fn set_self(&mut self, _self: u32) {
+        self._self = _self;
+    }
+}
 impl HasType for SPIRConstant {
     fn get_type() -> Types {
         Types::TypeConstant
@@ -1048,6 +1219,7 @@ impl SPIRConstant {
             is_used_as_lut: false,
             subconstants: vec![],
             specialization_constant_macro_name: String::new(),
+            _self: 0,
         }
     }
 
@@ -1064,6 +1236,7 @@ impl SPIRConstant {
             is_used_as_lut: false,
             subconstants: elements,
             specialization_constant_macro_name: String::new(),
+            _self: 0,
         }
     }
 
@@ -1081,6 +1254,7 @@ impl SPIRConstant {
             is_used_as_lut: false,
             subconstants: vec![],
             specialization_constant_macro_name: String::new(),
+            _self: 0,
         };
         constant.m.c[0].r[0] = Constant::from_u32(v0);
         constant.m.c[0].vecsize = 1;
@@ -1102,6 +1276,7 @@ impl SPIRConstant {
             is_used_as_lut: false,
             subconstants: vec![],
             specialization_constant_macro_name: String::new(),
+            _self: 0,
         };
         constant.m.c[0].r[0] = Constant::from_u64(v0);
         constant.m.c[0].vecsize = 1;
@@ -1122,6 +1297,7 @@ impl SPIRConstant {
             is_used_as_lut: false,
             subconstants: vec![],
             specialization_constant_macro_name: String::new(),
+            _self: 0,
         };
 
         let matrix = vector_elements[0].m.c[0].vecsize > 1;
@@ -1130,8 +1306,7 @@ impl SPIRConstant {
             for i in 0..vector_elements.len() {
                 constant.m.c[i] = vector_elements[i].m.c[0];
                 if vector_elements[i].specialization {
-//                    constant.m.id[i] = vector_elements[i].self
-                    // TODO: add <_self> from IVariant
+                    constant.m.id[i] = vector_elements[i].get_self();
                     constant.m.id[i] = 0;
                 }
             }
@@ -1141,8 +1316,7 @@ impl SPIRConstant {
             for i in 0..vector_elements.len() {
                 constant.m.c[0].r[i] = vector_elements[i].m.c[0].r[0];
                 if vector_elements[i].specialization {
-//                    constant.m.c[0].id[i] = vector_elements[i].self;
-                    // TODO: add <_self> from IVariant
+                    constant.m.c[0].id[i] = vector_elements[i].get_self();
                     constant.m.c[0].id[i] = 0;
                 }
             }
@@ -1286,25 +1460,24 @@ impl SPIRConstant {
 }
 
 pub struct Variant {
-    pub holder: Option<Box<IVariant>>,
+    pub holder: Option<VariantHolder>,
     _type: Types,
     allow_type_rewrite: bool,
 }
 
 impl Variant {
-    pub fn set<T: HasType>(&mut self, val: impl IVariant, new_type: Types) {
-        if !self.allow_type_rewrite && self._type as u32 != Types::TypeNone as u32 && self._type as u32 != new_type as u32 {
+    pub fn set(&mut self, val: VariantHolder) {
+        if !self.allow_type_rewrite
+            && self._type as u32 != Types::TypeNone as u32
+            && self._type as u32 != val.get_type() as u32 {
             panic!("Overwriting a variant with new type.");
         }
-        self.holder = Some(Box::new(val));
-        self._type = new_type;
+        self.holder = Some(val);
+        self._type = val.get_type();
         self.allow_type_rewrite = false;
     }
-    pub fn get<T: HasType>(&self) -> T {
-        if T::get_type() as u32 != self._type as u32 {
-            panic!("Bad cast");
-        }
-        self.holder.unwrap()
+    pub fn get(&self) -> &VariantHolder {
+        &self.holder.unwrap()
     }
 
     pub fn get_type(&self) -> Types {
@@ -1482,7 +1655,7 @@ fn type_is_integral(_type: &SPIRType) -> bool {
     }
 }
 
-fn to_signed_basetype(width: u32) -> BaseType {
+pub fn to_signed_basetype(width: u32) -> BaseType {
     match width {
         8 => BaseType::SByte,
         16 => BaseType::Short,
@@ -1492,7 +1665,7 @@ fn to_signed_basetype(width: u32) -> BaseType {
     }
 }
 
-fn to_unsigned_basetype(width: u32) -> BaseType {
+pub fn to_unsigned_basetype(width: u32) -> BaseType {
     match width {
         8 => BaseType::UByte,
         16 => BaseType::UShort,

@@ -17,6 +17,7 @@ use crate::spirv_common::{
     Types,
     IVariant,
     Variant,
+    VariantHolder,
 };
 use crate::spirv as spv;
 
@@ -413,7 +414,7 @@ impl ParsedIR {
         }
     }
 
-    fn set_member_decoration(
+    pub fn set_member_decoration(
         &mut self,
         id: u32,
         index: u32,
@@ -464,7 +465,7 @@ impl ParsedIR {
         }
     }
 
-    fn set_member_decoration_string(
+    pub fn set_member_decoration_string(
         &mut self,
         id: u32,
         index: u32,
@@ -626,17 +627,18 @@ impl ParsedIR {
         let variant = &mut self.ids[id as usize];
         match variant.get_type() {
             Types::TypeConstant => {
-                (variant
-                    .holder
-                    .unwrap() as SPIRConstant)
-                    .is_used_as_array_length = true;
+                match variant.holder.unwrap() {
+                    VariantHolder::SPIRConstant(value) => {
+                        value.is_used_as_array_length = true;
+                    }
+                    _ => panic!("Bad cast"),
+                }  
             }
             Types::TypeConstantOp => {
-                let cop = (
-                    variant
-                        .holder
-                        .unwrap() as SPIRConstantOp
-                    );
+                let cop = match variant.holder.unwrap() {
+                    VariantHolder::SPIRConstantOp(value) => value,
+                    _ => panic!("Bad cast"),
+                };
                 for arg_id in cop.arguments {
                     self.mark_used_as_array_length(arg_id);
                 }
@@ -658,9 +660,11 @@ impl ParsedIR {
         curr_bound as u32
     }
     fn get_buffer_block_flags(&self, var: SPIRVariable) -> Bitset {
-        let _type = self.ids[var.basetype as usize]
-            .holder
-            .unwrap() as SPIRType;
+        let _type = match self.ids[var.basetype as usize].holder.unwrap() {
+            VariantHolder::SPIRType(_type) => _type,
+            _ => panic!("Bad cast"),
+        };
+        
         assert!(_type.basetype as u32 == BaseType::Struct as u32);
 
         // Some flags like non-writable, non-readable are actually found
@@ -692,15 +696,16 @@ impl ParsedIR {
         base_flags
     }
 
-    pub fn add_typed_id<T: HasType>(
+    pub fn add_typed_id(
         &mut self,
         id: u32,
+        _type: Types,
     ) {
         if self.loop_iteration_depth != 0 {
             panic!("Cannot add typed ID while looping over it.");
         }
 
-        match T::get_type() {
+        match _type {
             Types::TypeConstant => {
                 self.ids_for_constant_or_variable.push(id);
                 self.ids_for_constant_or_type.push(id);
@@ -718,14 +723,14 @@ impl ParsedIR {
         }
 
         if self.ids[id as usize].empty() {
-            self.ids_for_type[T::get_type() as usize]
+            self.ids_for_type[_type as usize]
                 .push(id);
-        } else if self.ids[id as usize].get_type() as u32 != T::get_type() as u32 {
+        } else if self.ids[id as usize].get_type() as u32 != _type as u32 {
             self.remove_typed_id(
                 self.ids[id as usize].get_type(),
                 id,
             );
-            self.ids_for_type[T::get_type() as usize].push(id);
+            self.ids_for_type[_type as usize].push(id);
         }
     }
     fn remove_typed_id(
@@ -737,13 +742,13 @@ impl ParsedIR {
         type_ids.retain(|x| *x != id);
     }
 
-    fn for_each_typed_id<T: HasType>(&mut self, op: impl Fn(u32, T)) {
+    fn for_each_typed_id<T: HasType>(&mut self, op: impl Fn(u32, &VariantHolder)) {
         self.loop_iteration_depth += 1;
 
         // todo: do something with it
         for id in self.ids_for_type[T::get_type() as usize] {
             if self.ids[id as usize].get_type() as u32 == T::get_type() as u32 {
-                op(id, self.get::<T>(id));
+                op(id, self.get(id as usize));
             }
         }
 
@@ -766,8 +771,8 @@ impl ParsedIR {
         self.empty_string.to_owned()
     }
 
-    fn get<T: HasType>(&self, id: u32) -> T {
-        self.ids[id as usize].get::<T>()
+    fn get(&self, id: usize) -> &VariantHolder {
+        self.ids[id].get()
     }
 }
 

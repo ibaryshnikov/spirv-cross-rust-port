@@ -1,14 +1,19 @@
 use num::FromPrimitive;
 
 use crate::spirv_common::{
+    BaseType,
     HasType,
     Instruction,
     SPIRBlock,
     SPIREntryPoint,
     SPIRExtension,
+    SPIRType,
     Extension,
     SPIRFunction,
     SPIRUndef,
+    Types,
+    to_signed_basetype,
+    to_unsigned_basetype,
 };
 use crate::spirv_cross_parsed_ir::{
     ParsedIR,
@@ -23,6 +28,7 @@ use crate::spirv::{
     SourceLanguage::{self, *},
 };
 use crate::spirv::Capability::CapabilityKernel;
+use crate::spirv_common::VariantHolder;
 
 struct Parser {
     ir: ParsedIR,
@@ -148,7 +154,9 @@ impl Parser {
                     instruction.offset + 1,
                 );
                 let kind = Extension::from_str(&ext);
-                self.set::<SPIRExtension>(id, kind as u32);
+                let mut value = SPIRExtension::default();
+                value.kind = kind;
+                self.set(id, VariantHolder::SPIRExtension(value));
 
                 // Other SPIR-V extensions which have ExtInstrs are currently not supported.
             }
@@ -283,7 +291,179 @@ impl Parser {
             }
 
             OpGroupMemberDecorate => {
-                // TODO: continue...
+                let group_id = ops[0];
+                let flags = &self.ir.meta
+                    .get(&group_id)
+                    .unwrap()
+                    .decoration.decoration_flags;
+
+                // Copies decorations from one ID to another. Only copy decorations which are set in the group,
+                // i.e., we cannot just copy the meta structure directly.
+                let mut i = 1;
+                let limit = length as usize - 1;
+                while i < limit {
+                    let target = ops[i + 0];
+                    let index = ops[i + 1];
+                    flags.for_each_bit(|bit: u32| {
+                        let decoration = FromPrimitive::from_u32(bit)
+                            .unwrap();
+                        if Self::decoration_is_string(decoration) {
+                            self.ir.set_member_decoration_string(
+                                target,
+                                index,
+                                decoration,
+                                self.ir.get_decoration_string(group_id, decoration),
+                            );
+                        } else {
+                            self.ir.set_member_decoration(
+                                target,
+                                index,
+                                decoration,
+                                self.ir.get_decoration(group_id, decoration));
+                        }
+                    });
+                    i += 2;
+                }
+            }
+
+            OpDecorate => {
+                // OpDecorateId technically supports an array of arguments, but our only supported decorations are single uint,
+                // so merge decorate and decorate-id here.
+                let id = ops[0];
+
+                let decoration: spv::Decoration = FromPrimitive::from_u32(ops[1])
+                    .unwrap();
+                if length >= 3 {
+                    self.ir.meta
+                        .get_mut(&id)
+                        .unwrap()
+                        .decoration_word_offset
+                        // TODO: fix data() thing
+                        .insert(decoration as u32, (&ops[2] - self.ir.spirv.data()) as u32);
+                    self.ir.set_decoration(id, decoration, ops[2]);
+                } else {
+                    self.ir.set_decoration(id, decoration, None);
+                }
+            }
+
+            OpDecorateId => {
+                // OpDecorateId technically supports an array of arguments, but our only supported decorations are single uint,
+                // so merge decorate and decorate-id here.
+                let id = ops[0];
+
+                let decoration: spv::Decoration = FromPrimitive::from_u32(ops[1])
+                    .unwrap();
+                if length >= 3 {
+                    self.ir.meta
+                        .get_mut(&id)
+                        .unwrap()
+                        .decoration_word_offset
+                        // TODO: fix data thing
+                        .insert(decoration as u32, (&ops[2] - self.ir.spirv.data()) as u32);
+                    self.ir.set_decoration(id, decoration, ops[2]);
+                } else {
+                    self.ir.set_decoration(id, decoration, None);
+                }
+            }
+
+            OpDecorateStringGOOGLE => {
+                let id = ops[0];
+                let decoration = FromPrimitive::from_u32(ops[1])
+                    .unwrap();
+                self.ir.set_decoration_string(
+                    id,
+                    decoration,
+                    Self::extract_string(&self.ir.spirv, instruction.offset + 2),
+                );
+            }
+
+            OpMemberDecorate => {
+                let id = ops[0];
+                let member = ops[1];
+                let decoration = FromPrimitive::from_u32(ops[2])
+                    .unwrap();
+                if length >= 4 {
+                    self.ir.set_member_decoration(
+                        id,
+                        member,
+                        decoration,
+                        ops[3],
+                    );
+                } else {
+                    self.ir.set_member_decoration(
+                        id,
+                        member,
+                        decoration,
+                        None,
+                    );
+                }
+            }
+
+            OpMemberDecorateStringGOOGLE => {
+                let id = ops[0];
+                let member = ops[1];
+                let decoration = FromPrimitive::from_u32(ops[2])
+                    .unwrap();
+                self.ir.set_member_decoration_string(
+                    id,
+                    member,
+                    decoration,
+                    Self::extract_string(&self.ir.spirv, instruction.offset + 3),
+                );
+            }
+
+            OpTypeVoid => {
+                let id = ops[0];
+                let mut value = SPIRType::default();
+                value.basetype = BaseType::Void;
+                self.set(id, VariantHolder::SPIRType(value));
+            }
+
+            OpTypeBool => {
+                let id = ops[0];
+                let mut value = SPIRType::default();
+                value.basetype = BaseType::Boolean;
+                value.width = 1;
+                self.set(id, VariantHolder::SPIRType(value));
+            }
+
+            OpTypeFloat => {
+                let id = ops[0];
+		        let width = ops[1];
+
+                let mut value = SPIRType::default();
+                if width == 64 {
+                    value.basetype = BaseType::Double;
+                } else if width == 32 {
+                    value.basetype = BaseType::Float;
+                } else if width == 16 {
+                    value.basetype = BaseType::Half;
+                } else {
+                    panic!("Unrecognized bit-width of floating point type.");
+                }
+                value.width = width;
+		        self.set(id, VariantHolder::SPIRType(value));
+            }
+
+            OpTypeInt => {
+                let id = ops[0];
+                let width = ops[1];
+                let signedness = ops[2] != 0;
+                let mut value = SPIRType::default();
+                value.basetype = if signedness {
+                    to_signed_basetype(width)
+                 } else {
+                     to_unsigned_basetype(width)
+                 };
+                value.width = width;
+                self.set(id, VariantHolder::SPIRType(value));
+            }
+
+            // Build composite types by "inheriting".
+	        // NOTE: The self member is also copied! For pointers and array modifiers this is a good thing
+	        // since we can refer to decorations on pointee classes which is needed for UBO/SSBO, I/O blocks in geometry/tess etc.
+            OpTypeVector => {
+                // ...
             }
 
         }
@@ -389,10 +569,24 @@ impl Parser {
         &self.ir
     }
 
-    fn set<T: HasType>(&mut self, id: u32, _type: u32) -> &T {
-        self.ir.add_typed_id::<T>(id);
-        let mut var = &self.ir.ids[id as usize];
-        // TODO: fix this
-        //  var.set::<T>(id, )
+    fn set(&mut self, id: u32, holder: VariantHolder) {
+        self.ir.add_typed_id(id, holder.get_type());
+        holder.set_self(id);
+        self
+            .ir
+            .ids[id as usize]
+            .set(holder);
+    }
+
+    fn get(&self, id: usize) -> &VariantHolder {
+        self.ir.ids[id].get()
+    }
+
+    fn maybe_get(&self, id: usize, _type: Types) -> Option<&VariantHolder> {
+        if self.ir.ids[id].get_type() as u32 == _type as u32 {
+            Some(self.ir.ids[id].get())
+        } else {
+            None
+        }
     }
 }

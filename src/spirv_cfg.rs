@@ -116,7 +116,7 @@ impl<'a> Cfg<'a> {
                 for edge in *pred {
                     if self.immediate_dominators.contains_key(block) {
                         assert!(self.immediate_dominators.contains_key(edge));
-                        self.immediate_dominators.insert(*block, self.find_common_dominator(*block, edge));
+                        self.immediate_dominators.insert(*block, self.find_common_dominator(*block, *edge));
                     } else {
                         self.immediate_dominators.insert(*block, *edge);
                     }
