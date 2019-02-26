@@ -115,6 +115,7 @@ pub enum ExecutionMode {
     ExecutionModeMax = 0x7fffffff,
 }
 
+#[derive(Clone)]
 pub enum StorageClass {
     StorageClassUniformConstant = 0,
     StorageClassInput = 1,
@@ -132,6 +133,7 @@ pub enum StorageClass {
     StorageClassMax = 0x7fffffff,
 }
 
+#[derive(Clone)]
 pub enum Dim {
     Dim1D = 0,
     Dim2D = 1,
@@ -141,6 +143,12 @@ pub enum Dim {
     DimBuffer = 5,
     DimSubpassData = 6,
     DimMax = 0x7fffffff,
+}
+
+impl Default for Dim {
+    fn default() -> Self {
+        Dim::Dim1D
+    }
 }
 
 pub enum SamplerAddressingMode {
@@ -158,6 +166,7 @@ pub enum SamplerFilterMode {
     SamplerFilterModeMax = 0x7fffffff,
 }
 
+#[derive(Clone)]
 pub enum ImageFormat {
     ImageFormatUnknown = 0,
     ImageFormatRgba32f = 1,
@@ -200,6 +209,12 @@ pub enum ImageFormat {
     ImageFormatR16ui = 38,
     ImageFormatR8ui = 39,
     ImageFormatMax = 0x7fffffff,
+}
+
+impl Default for ImageFormat {
+    fn default() -> Self {
+        ImageFormat::ImageFormatUnknown
+    }
 }
 
 pub enum ImageChannelOrder {
@@ -303,11 +318,18 @@ pub enum LinkageType {
     LinkageTypeMax = 0x7fffffff,
 }
 
+#[derive(Clone)]
 pub enum AccessQualifier {
     AccessQualifierReadOnly = 0,
     AccessQualifierWriteOnly = 1,
     AccessQualifierReadWrite = 2,
     AccessQualifierMax = 0x7fffffff,
+}
+
+impl Default for AccessQualifier {
+    fn default() -> Self {
+        AccessQualifier::AccessQualifierReadOnly
+    }
 }
 
 pub enum FunctionParameterAttribute {

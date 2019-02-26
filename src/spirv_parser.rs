@@ -3,6 +3,7 @@ use num::FromPrimitive;
 use crate::spirv_common::{
     BaseType,
     HasType,
+    IVariant,
     Instruction,
     SPIRBlock,
     SPIREntryPoint,
@@ -20,12 +21,10 @@ use crate::spirv_cross_parsed_ir::{
 };
 use crate::spirv::{
     self as spv,
-    MAGIC_NUMBER,
-    ExecutionMode::{self, *},
-    ExecutionModel::{self, *},
-    Capability::{self, *},
-    Op::{self, *},
-    SourceLanguage::{self, *},
+//    MAGIC_NUMBER,
+    ExecutionMode::*,
+    Op::*,
+    SourceLanguage::*,
 };
 use crate::spirv::Capability::CapabilityKernel;
 use crate::spirv_common::VariantHolder;
@@ -127,7 +126,10 @@ impl Parser {
             OpUndef => {
                 let result_type = ops[0];
                 let id = ops[1];
-                self.set::<SPIRUndef>(id, result_type);
+                let mut value = SPIRUndef::new(result_type);
+                value.set_self(id);
+
+                self.set(id, VariantHolder::SPIRUndef(value));
             }
 
             OpCapability => {
@@ -154,8 +156,8 @@ impl Parser {
                     instruction.offset + 1,
                 );
                 let kind = Extension::from_str(&ext);
-                let mut value = SPIRExtension::default();
-                value.kind = kind;
+                let mut value = SPIRExtension::new(kind);
+                value.set_self(id);
                 self.set(id, VariantHolder::SPIRExtension(value));
 
                 // Other SPIR-V extensions which have ExtInstrs are currently not supported.
@@ -463,6 +465,23 @@ impl Parser {
 	        // NOTE: The self member is also copied! For pointers and array modifiers this is a good thing
 	        // since we can refer to decorations on pointee classes which is needed for UBO/SSBO, I/O blocks in geometry/tess etc.
             OpTypeVector => {
+                let id = ops[0];
+                let vecsize = ops[2];
+
+                let base = match self.get(ops[1] as usize) {
+                    VariantHolder::SPIRType(value) => value,
+                    _ => panic!("Bad cast"),
+                };
+
+                let mut vecbase = base.clone();
+                vecbase.vecsize = vecsize;
+                vecbase.set_self(id);
+                vecbase.parent_type = ops[1];
+
+                self.set(id, VariantHolder::SPIRType(vecbase));
+            }
+
+            OpTypeMatrix => {
                 // ...
             }
 

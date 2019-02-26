@@ -243,7 +243,7 @@ impl VariantHolder {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct SPIRUndef {
     basetype: u32,
     _self: u32,
@@ -264,7 +264,7 @@ impl HasType for SPIRUndef {
 }
 
 impl SPIRUndef {
-    fn new(basetype: u32) -> Self {
+    pub fn new(basetype: u32) -> Self {
         SPIRUndef { basetype, _self: 0 }
     }
 }
@@ -334,6 +334,7 @@ impl SPIRConstantOp {
     }
 }
 
+#[derive(Clone)]
 pub enum BaseType {
     Unknown,
     Void,
@@ -357,7 +358,7 @@ pub enum BaseType {
     Sampler,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct ImageType {
     _type: u32,
     dim: spv::Dim,
@@ -373,7 +374,7 @@ pub struct SPIRType {
     // Scalar/vector/matrix support.
     pub basetype: BaseType,
     pub width: u32,
-    vecsize: u32,
+    pub vecsize: u32,
     columns: u32,
 
     // Arrays, support array of arrays by having a vector of array sizes.
@@ -404,12 +405,27 @@ pub struct SPIRType {
 
     // Denotes the type which this type is based on.
     // Allows the backend to traverse how a complex type is built up during access chains.
-    parent_type: u32,
+    pub parent_type: u32,
 
     // Used in backends to avoid emitting members with conflicting names.
     member_name_cache: HashSet<String>,
 
     _self: u32,
+}
+
+impl Clone for SPIRType {
+    fn clone(&self) -> Self {
+        Self {
+            basetype: self.basetype.clone(),
+            array: self.array.to_vec(),
+            array_size_literal: self.array_size_literal.to_vec(),
+            storage: self.storage.clone(),
+            member_types: self.member_types.clone(),
+            image: self.image.clone(),
+            member_name_cache: self.member_name_cache.clone(),
+            ..*self
+        }
+    }
 }
 
 impl IVariant for SPIRType {
@@ -492,7 +508,7 @@ impl HasType for SPIRExtension {
 }
 
 impl SPIRExtension {
-    fn new(ext: Extension) -> Self {
+    pub fn new(ext: Extension) -> Self {
         SPIRExtension {
             ext,
             _self: 0,
@@ -709,22 +725,22 @@ struct Phi {
 #[derive(Default)]
 struct Case {
     value: u32,
-    block: u32,
+    pub block: u32,
 }
 
 pub struct SPIRBlock {
-    terminator: Terminator,
-    merge: Merge,
+    pub terminator: Terminator,
+    pub merge: Merge,
     hint: Hints,
-    next_block: u32,
-    merge_block: u32,
+    pub next_block: u32,
+    pub merge_block: u32,
     continue_block: u32,
 
     return_value: u32, // If 0, return nothing (void).
     condition: u32,
-    true_block: u32,
-    false_block: u32,
-    default_block: u32,
+    pub true_block: u32,
+    pub false_block: u32,
+    pub default_block: u32,
 
     ops: Vec<Instruction>,
 
@@ -739,7 +755,7 @@ pub struct SPIRBlock {
     // a complex loop header.
     potential_declare_temporary: Vec<(u32, u32)>,
 
-    cases: Vec<Case>,
+    pub cases: Vec<Case>,
 
     // If we have tried to optimize code for this block but failed,
     // keep track of this.

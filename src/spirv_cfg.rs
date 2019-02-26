@@ -19,8 +19,12 @@ use std::collections::{HashMap, HashSet};
 use crate::spirv_common::{
     Merge,
     Terminator,
-    SPIRBlock,
     SPIRFunction,
+    VariantHolder,
+};
+
+use crate::spirv_cross::{
+    Compiler,
 };
 
 struct VisitOrder {
@@ -86,13 +90,12 @@ impl<'a> Cfg<'a> {
     }
 
     fn get_visit_order(&self, block: u32) -> u32 {
-        if let Some(value) = self.visit_order.get(&block) {
-            let v = value.v;
-            assert!(v > 0);
-            return v as u32;
-        }
-        panic!("visit order not found");
-        0
+        let value = self.visit_order
+            .get(&block)
+            .unwrap();
+        let v = value.v;
+        assert!(v > 0);
+        return v as u32;
     }
 
     fn find_common_dominator(&self, mut a: u32, mut b: u32) -> u32 {
@@ -150,7 +153,10 @@ impl<'a> Cfg<'a> {
         }
 
         // First visit our branch targets.
-        let block = &self.compiler.get::<SPIRBlock>(block_id);
+        let block = match self.compiler.get(block_id as usize) {
+            VariantHolder::SPIRBlock(value) => value,
+            _ => panic!("Bad cast"),
+        };
         match block.terminator {
             Terminator::Direct => {
                 if self.post_order_visit(block.next_block) {
@@ -171,7 +177,7 @@ impl<'a> Cfg<'a> {
                         self.add_branch(block_id, target.block);
                     }
                 }
-                if block.default_block && self.post_order_visit(block.default_block) {
+                if block.default_block != 0 && self.post_order_visit(block.default_block) {
                     self.add_branch(block_id, block.default_block);
                 }
             },
@@ -300,7 +306,10 @@ impl<'a> DominatorBuilder<'a> {
             return;
         }
 
-        let block = &self.cfg.get_compiler().get::<SPIRBlock>(self.dominator);
+        let block = match self.cfg.get_compiler().get(self.dominator as usize) {
+            VariantHolder::SPIRBlock(value) => value,
+            _ => panic!("Bad cast"),
+        };
         let post_order = self.cfg.get_visit_order(self.dominator);
 
         // If we are branching to a block with a higher post-order traversal index (continue blocks), we have a problem
@@ -326,7 +335,7 @@ impl<'a> DominatorBuilder<'a> {
                         back_edge_dominator = true;
                     }
                 }
-                if block.default_block && self.cfg.get_visit_order(block.default_block) > post_order {
+                if block.default_block != 0 && self.cfg.get_visit_order(block.default_block) > post_order {
                     back_edge_dominator = true;
                 }
             },
