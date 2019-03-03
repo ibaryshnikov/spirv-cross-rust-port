@@ -5,6 +5,7 @@ use crate::spirv as spv;
 
 struct CompilerError(String);
 
+#[derive(Clone)]
 pub struct Bitset {
     // The most common bits to set are all lower than 64,
     // so optimize for this case. Bits spilling outside 64 go into a slower data structure.
@@ -61,9 +62,9 @@ impl Bitset {
     pub fn merge_and(&mut self, other: &Bitset) {
         self.lower &= other.lower;
         let mut tmp_set = HashSet::new();
-        for v in self.higher {
-            if other.higher.contains(&v) {
-                tmp_set.insert(v);
+        for v in &self.higher {
+            if other.higher.contains(v) {
+                tmp_set.insert(*v);
             }
         }
         self.higher = tmp_set;
@@ -71,12 +72,12 @@ impl Bitset {
 
     pub fn merge_or(&mut self, other: &Bitset) {
         self.lower |= other.lower;
-        for v in other.higher {
-            self.higher.insert(v);
+        for v in &other.higher {
+            self.higher.insert(*v);
         }
     }
 
-    pub fn for_each_bit(&self, op: impl Fn(u32) -> ()) {
+    pub fn for_each_bit(&self, op: impl FnMut(u32) -> ()) {
         // TODO: Add ctz-based iteration.
         for i in 0..64 {
             if (self.lower & (1u64 << i)) != 0 {
@@ -92,8 +93,8 @@ impl Bitset {
         // but hitting this path should happen extremely rarely, so having this slow path is fine.
         let mut bits: Vec<u32> = vec![];
         bits.reserve(self.higher.len());
-        for v in self.higher {
-            bits.push(v);
+        for v in &self.higher {
+            bits.push(*v);
         }
         bits.sort();
 
@@ -118,8 +119,8 @@ impl PartialEq for Bitset {
             return false;
         }
 
-        for v in self.higher {
-            if !other.higher.contains(&v) {
+        for v in &self.higher {
+            if !other.higher.contains(v) {
                 return false;
             }
         }
@@ -136,7 +137,7 @@ fn merge(list: &Vec<String>) -> String {
     list.join(", ")
 }
 
-
+#[derive(Clone)]
 pub struct Instruction {
     pub op: u16,
     pub count: u16,
@@ -177,6 +178,7 @@ pub enum Types {
     TypeCount,
 }
 
+#[derive(Clone)]
 pub enum VariantHolder {
     SPIRUndef(SPIRUndef),
     SPIRCombinedImageSampler(SPIRCombinedImageSampler),
@@ -209,7 +211,7 @@ impl VariantHolder {
             VariantHolder::SPIRConstant(variant) => variant.get_self(),
         }
     }
-    pub fn set_self(&self, value: u32) {
+    pub fn set_self(&mut self, value: u32) {
         match self {
             VariantHolder::SPIRUndef(variant) => variant.set_self(value),
             VariantHolder::SPIRCombinedImageSampler(variant) => variant.set_self(value),
@@ -269,7 +271,8 @@ impl SPIRUndef {
     }
 }
 
-struct SPIRCombinedImageSampler {
+#[derive(Clone)]
+pub struct SPIRCombinedImageSampler {
     combined_type: u32,
     image: u32,
     sampler: u32,
@@ -359,15 +362,15 @@ pub enum BaseType {
 }
 
 #[derive(Clone, Default)]
-struct ImageType {
-    _type: u32,
-    dim: spv::Dim,
-    depth: bool,
-    arrayed: bool,
-    ms: bool,
-    sampled: u32,
-    format: spv::ImageFormat,
-    access: spv::AccessQualifier,
+pub struct ImageType {
+    pub _type: u32,
+    pub dim: spv::Dim,
+    pub depth: bool,
+    pub arrayed: bool,
+    pub ms: bool,
+    pub sampled: u32,
+    pub format: spv::ImageFormat,
+    pub access: spv::AccessQualifier,
 }
 
 pub struct SPIRType {
@@ -375,28 +378,28 @@ pub struct SPIRType {
     pub basetype: BaseType,
     pub width: u32,
     pub vecsize: u32,
-    columns: u32,
+    pub columns: u32,
 
     // Arrays, support array of arrays by having a vector of array sizes.
-    array: Vec<u32>,
+    pub array: Vec<u32>,
 
     // Array elements can be either specialization constants or specialization ops.
     // This array determines how to interpret the array size.
     // If an element is true, the element is a literal,
     // otherwise, it's an expression, which must be resolved on demand.
     // The actual size is not really known until runtime.
-    array_size_literal: Vec<bool>,
+    pub array_size_literal: Vec<bool>,
 
     // Pointers
     // Keep track of how many pointer layers we have.
-    pointer_depth: u32,
-    pointer: bool,
+    pub pointer_depth: u32,
+    pub pointer: bool,
 
-    storage: spv::StorageClass,
+    pub storage: spv::StorageClass,
 
     pub member_types: Vec<u32>,
 
-    image: ImageType,
+    pub image: ImageType,
 
     // Structs can be declared multiple times if they are used as part of interface blocks.
     // We want to detect this so that we only emit the struct definition once.
@@ -569,7 +572,8 @@ impl SPIREntryPoint {
     }
 }
 
-struct SPIRExpression {
+#[derive(Clone)]
+pub struct SPIRExpression {
     // If non-zero, prepend expression with to_expression(base_expression).
     // Used in amortizing multiple calls to to_expression()
     // where in certain cases that would quickly force a temporary when not needed.
@@ -636,7 +640,8 @@ impl SPIRExpression {
     }
 }
 
-struct SPIRFunctionPrototype {
+#[derive(Clone)]
+pub struct SPIRFunctionPrototype {
     return_type: u32,
     parameter_types: Vec<u32>,
     _self: u32,
@@ -666,6 +671,7 @@ impl SPIRFunctionPrototype {
     }
 }
 
+#[derive(Clone)]
 pub enum Terminator {
     Unknown,
     Direct, // Emit next block directly without a particular condition.
@@ -678,12 +684,14 @@ pub enum Terminator {
     Kill, // Discard
 }
 
+#[derive(Clone)]
 pub enum Merge {
     MergeNone,
     MergeLoop,
     MergeSelection,
 }
 
+#[derive(Clone)]
 enum Hints {
     HintNone,
     HintUnroll,
@@ -715,19 +723,20 @@ enum ContinueBlockType {
     ComplexLoop,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct Phi {
     local_variable: u32, // flush local variable ...
     parent: u32, // If we're in from_block and want to branch into this block ...
     function_variable: u32, // to this function-global "phi" variable first.
 }
 
-#[derive(Default)]
-struct Case {
+#[derive(Clone, Default)]
+pub struct Case {
     value: u32,
     pub block: u32,
 }
 
+#[derive(Clone)]
 pub struct SPIRBlock {
     pub terminator: Terminator,
     pub merge: Merge,
@@ -834,6 +843,7 @@ impl Default for SPIRBlock {
     }
 }
 
+#[derive(Clone)]
 struct Parameter {
     _type: u32,
     id: u32,
@@ -856,6 +866,7 @@ struct Parameter {
 // and combine them with parameters,
 // so we need to distinguish if something is local parameter index
 // or a global ID.
+#[derive(Clone)]
 struct CombinedImageSamplerParameter {
     id: u32,
     image_id: u32,
@@ -865,6 +876,7 @@ struct CombinedImageSamplerParameter {
     depth: bool,
 }
 
+#[derive(Clone)]
 pub struct SPIRFunction {
     return_type: u32,
     function_type: u32,
@@ -958,7 +970,8 @@ impl SPIRFunction {
     }
 }
 
-struct SPIRAccessChain {
+#[derive(Clone)]
+pub struct SPIRAccessChain {
     basetype: u32,
     storage: spv::StorageClass,
     base: String,
@@ -1015,6 +1028,7 @@ impl SPIRAccessChain {
     }
 }
 
+#[derive(Clone)]
 pub struct SPIRVariable {
     pub basetype: u32,
     storage: spv::StorageClass,
@@ -1171,6 +1185,7 @@ impl Default for ConstantVector {
     }
 }
 
+#[derive(Clone)]
 struct ConstantMatrix {
     c: [ConstantVector; 4],
     id: [u32; 4],
@@ -1187,12 +1202,13 @@ impl Default for ConstantMatrix {
     }
 }
 
+#[derive(Clone)]
 pub struct SPIRConstant {
     constant_type: u32,
     m: ConstantMatrix,
 
     // If this constant is a specialization constant (i.e. created with OpSpecConstant*).
-    specialization: bool,
+    pub specialization: bool,
     // If this constant is used as an array length which creates specialization restrictions on some backends.
     pub is_used_as_array_length: bool,
 
@@ -1391,7 +1407,7 @@ impl SPIRConstant {
             .r[row.into().unwrap_or(0)]
     }
 
-    fn scalar(&self, col: impl Into<Option<usize>>, row: impl Into<Option<usize>>) -> u32 {
+    pub fn scalar(&self, col: impl Into<Option<usize>>, row: impl Into<Option<usize>>) -> u32 {
         self.get_constant(col, row).to_u32()
     }
 
@@ -1475,6 +1491,7 @@ impl SPIRConstant {
     }
 }
 
+#[derive(Clone)]
 pub struct Variant {
     pub holder: Option<VariantHolder>,
     _type: Types,
@@ -1550,6 +1567,7 @@ impl Default for AccessChainMeta {
     }
 }
 
+#[derive(Clone)]
 struct DecorationExtended {
     packed: bool,
     packed_type: u32,
@@ -1564,6 +1582,7 @@ impl Default for DecorationExtended {
     }
 }
 
+#[derive(Clone)]
 pub struct Decoration {
     pub alias: String,
     qualified_alias: String,

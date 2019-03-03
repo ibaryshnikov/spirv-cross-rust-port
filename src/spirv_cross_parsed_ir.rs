@@ -66,7 +66,7 @@ pub struct ParsedIR {
 
 fn make_ids_of_size(len: usize) -> Vec<Vec<u32>> {
     let mut result = vec![];
-    for i in 0..len {
+    for _i in 0..len {
         result.push(vec![]);
     }
     result
@@ -153,48 +153,46 @@ impl ParsedIR {
             .decoration_flags
             .set(decoration as u32);
 
-        use spv::Decoration::*;
-
         match decoration {
-            DecorationBuiltIn => {
+            spv::Decoration::DecorationBuiltIn => {
                 dec.builtin = true;
                 dec.builtin_type = FromPrimitive::from_u32(argument).unwrap();
             }
-            DecorationLocation => {
+            spv::Decoration::DecorationLocation => {
                 dec.location = argument;
             }
-            DecorationComponent => {
+            spv::Decoration::DecorationComponent => {
                 dec.component = argument;
             }
-            DecorationOffset => {
+            spv::Decoration::DecorationOffset => {
                 dec.offset = argument;
             }
-            DecorationArrayStride => {
+            spv::Decoration::DecorationArrayStride => {
                 dec.array_stride = argument;
             }
-            DecorationMatrixStride => {
+            spv::Decoration::DecorationMatrixStride => {
                 dec.matrix_stride = argument;
             }
-            DecorationBinding => {
+            spv::Decoration::DecorationBinding => {
                 dec.binding = argument;
             }
-            DecorationDescriptorSet => {
+            spv::Decoration::DecorationDescriptorSet => {
                 dec.set = argument;
             }
-            DecorationInputAttachmentIndex => {
+            spv::Decoration::DecorationInputAttachmentIndex => {
                 dec.input_attachment = argument;
             }
-            DecorationSpecId => {
+            spv::Decoration::DecorationSpecId => {
                 dec.spec_id = argument;
             }
-            DecorationIndex => {
+            spv::Decoration::DecorationIndex => {
                 dec.index = argument;
             }
-            DecorationHlslCounterBufferGOOGLE => {
+            spv::Decoration::DecorationHlslCounterBufferGOOGLE => {
                 meta.hlsl_magic_counter_buffer = argument;
                 meta.hlsl_is_magic_counter_buffer = true;
             }
-            DecorationFPRoundingMode => {
+            spv::Decoration::DecorationFPRoundingMode => {
                 dec.fp_rounding_mode = FromPrimitive::from_u32(argument).unwrap();;
             }
             _ => ()
@@ -249,21 +247,19 @@ impl ParsedIR {
             return 0;
         }
 
-        use spv::Decoration::*;
-
         match decoration {
-            DecorationBuiltIn=> dec.builtin_type as u32,
-            DecorationLocation=> dec.location,
-            DecorationComponent=> dec.component,
-            DecorationOffset=> dec.offset,
-            DecorationBinding=> dec.binding,
-            DecorationDescriptorSet=> dec.set,
-            DecorationInputAttachmentIndex=> dec.input_attachment,
-            DecorationSpecId=> dec.spec_id,
-            DecorationArrayStride=> dec.array_stride,
-            DecorationMatrixStride=> dec.matrix_stride,
-            DecorationIndex=> dec.index,
-            DecorationFPRoundingMode=> dec.fp_rounding_mode as u32,
+            spv::Decoration::DecorationBuiltIn=> dec.builtin_type as u32,
+            spv::Decoration::DecorationLocation=> dec.location,
+            spv::Decoration::DecorationComponent=> dec.component,
+            spv::Decoration::DecorationOffset=> dec.offset,
+            spv::Decoration::DecorationBinding=> dec.binding,
+            spv::Decoration::DecorationDescriptorSet=> dec.set,
+            spv::Decoration::DecorationInputAttachmentIndex=> dec.input_attachment,
+            spv::Decoration::DecorationSpecId=> dec.spec_id,
+            spv::Decoration::DecorationArrayStride=> dec.array_stride,
+            spv::Decoration::DecorationMatrixStride=> dec.matrix_stride,
+            spv::Decoration::DecorationIndex=> dec.index,
+            spv::Decoration::DecorationFPRoundingMode=> dec.fp_rounding_mode as u32,
             _ => 1,
         }
     }
@@ -283,10 +279,8 @@ impl ParsedIR {
             return self.empty_string.to_owned();
         }
 
-        use spv::Decoration::*;
-
         match decoration {
-            DecorationHlslSemanticGOOGLE => dec.hlsl_semantic.to_owned(),
+            spv::Decoration::DecorationHlslSemanticGOOGLE => dec.hlsl_semantic.to_owned(),
             _ => self.empty_string.to_owned(),
         }
     }
@@ -314,40 +308,38 @@ impl ParsedIR {
         let dec = &mut meta.decoration;
         dec.decoration_flags.clear(decoration as u32);
 
-        use spv::Decoration::*;
-
         match decoration {
-            DecorationBuiltIn=> {
+            spv::Decoration::DecorationBuiltIn=> {
                 dec.builtin = false;
             }
-            DecorationLocation=> {
+            spv::Decoration::DecorationLocation=> {
                 dec.location = 0;
             }
-            DecorationComponent=> {
+            spv::Decoration::DecorationComponent=> {
                 dec.component = 0;
             }
-            DecorationOffset=> {
+            spv::Decoration::DecorationOffset=> {
                 dec.offset = 0;
             }
-            DecorationBinding=> {
+            spv::Decoration::DecorationBinding=> {
                 dec.binding = 0;
             }
-            DecorationDescriptorSet=> {
+            spv::Decoration::DecorationDescriptorSet=> {
                 dec.set = 0;
             }
-            DecorationInputAttachmentIndex=> {
+            spv::Decoration::DecorationInputAttachmentIndex=> {
                 dec.input_attachment = 0;
             }
-            DecorationSpecId=> {
+            spv::Decoration::DecorationSpecId=> {
                 dec.spec_id = 0;
             }
-            DecorationHlslSemanticGOOGLE=> {
+            spv::Decoration::DecorationHlslSemanticGOOGLE=> {
                 dec.hlsl_semantic.clear();
             }
-            DecorationFPRoundingMode=> {
+            spv::Decoration::DecorationFPRoundingMode=> {
                 dec.fp_rounding_mode = spv::FPRoundingMode::FPRoundingModeMax;
             }
-            DecorationHlslCounterBufferGOOGLE=> {
+            spv::Decoration::DecorationHlslCounterBufferGOOGLE=> {
                 let counter = meta.hlsl_magic_counter_buffer;
                 if counter != 0 {
                     self
@@ -404,7 +396,7 @@ impl ParsedIR {
             if index >= m.members.len() {
                 self.empty_string.to_owned()
             } else {
-                m.members[index].alias
+                m.members[index].alias.clone()
             }
         } else {
             self.empty_string.to_owned()
@@ -433,29 +425,29 @@ impl ParsedIR {
         dec.decoration_flags.set(decoration as u32);
 
         match decoration {
-            DecorationBuiltIn=> {
+            spv::Decoration::DecorationBuiltIn=> {
                 dec.builtin = true;
                 dec.builtin_type = FromPrimitive::from_u32(argument).unwrap();
             }
-            DecorationLocation=> {
+            spv::Decoration::DecorationLocation=> {
                 dec.location = argument;
             }
-            DecorationComponent=> {
+            spv::Decoration::DecorationComponent=> {
                 dec.component = argument;
             }
-            DecorationBinding=> {
+            spv::Decoration::DecorationBinding=> {
                 dec.binding = argument;
             }
-            DecorationOffset=> {
+            spv::Decoration::DecorationOffset=> {
                 dec.offset = argument;
             }
-            DecorationSpecId=> {
+            spv::Decoration::DecorationSpecId=> {
                 dec.spec_id = argument;
             }
-            DecorationMatrixStride=> {
+            spv::Decoration::DecorationMatrixStride=> {
                 dec.matrix_stride = argument;
             }
-            DecorationIndex=> {
+            spv::Decoration::DecorationIndex=> {
                 dec.index = argument;
             }
             _ => ()
@@ -484,10 +476,8 @@ impl ParsedIR {
         let dec = &mut meta.members[index as usize];
         dec.decoration_flags.set(decoration as u32);
 
-        use spv::Decoration::*;
-
         match decoration {
-            DecorationHlslSemanticGOOGLE=> {
+            spv::Decoration::DecorationHlslSemanticGOOGLE=> {
                 dec.hlsl_semantic = argument;
             }
             _ => (),
@@ -515,13 +505,13 @@ impl ParsedIR {
         }
 
         match decoration {
-            DecorationBuiltIn=> dec.builtin_type as u32,
-            DecorationLocation=> dec.location,
-            DecorationComponent=> dec.component,
-            DecorationBinding=> dec.binding,
-            DecorationOffset=> dec.offset,
-            DecorationSpecId=> dec.spec_id,
-            DecorationIndex=> dec.index,
+            spv::Decoration::DecorationBuiltIn => dec.builtin_type.clone() as u32,
+            spv::Decoration::DecorationLocation => dec.location,
+            spv::Decoration::DecorationComponent => dec.component,
+            spv::Decoration::DecorationBinding => dec.binding,
+            spv::Decoration::DecorationOffset => dec.offset,
+            spv::Decoration::DecorationSpecId => dec.spec_id,
+            spv::Decoration::DecorationIndex => dec.index,
             _ => 1,
         }
     }
@@ -593,25 +583,25 @@ impl ParsedIR {
         let dec = &mut meta.members[index as usize];
         dec.decoration_flags.clear(decoration as u32);
 
-        use spv::Decoration::*;
+//        use spv::Decoration::*;
 
         match decoration {
-            DecorationBuiltIn=> {
+            spv::Decoration::DecorationBuiltIn => {
                 dec.builtin = false;
             }
-            DecorationLocation=> {
+            spv::Decoration::DecorationLocation => {
                 dec.location = 0;
             }
-            DecorationComponent=> {
+            spv::Decoration::DecorationComponent => {
                 dec.component = 0;
             }
-            DecorationOffset=> {
+            spv::Decoration::DecorationOffset => {
                 dec.offset = 0;
             }
-            DecorationSpecId=> {
+            spv::Decoration::DecorationSpecId => {
                 dec.spec_id = 0;
             }
-            DecorationHlslSemanticGOOGLE=> {
+            spv::Decoration::DecorationHlslSemanticGOOGLE => {
                 dec.hlsl_semantic.clear();
             }
             _ => (),
@@ -620,12 +610,12 @@ impl ParsedIR {
 
     // Recursively marks any constants referenced by the specified constant instruction as being used
     // as an array length. The id must be a constant instruction (SPIRConstant or SPIRConstantOp).
-    fn mark_used_as_array_length(&mut self, id: u32) {
+    pub fn mark_used_as_array_length(&mut self, id: u32) {
         let variant = &mut self.ids[id as usize];
         match variant.get_type() {
             Types::TypeConstant => {
                 match variant.holder.unwrap() {
-                    VariantHolder::SPIRConstant(value) => {
+                    VariantHolder::SPIRConstant(mut value) => {
                         value.is_used_as_array_length = true;
                     }
                     _ => panic!("Bad cast"),
@@ -651,7 +641,7 @@ impl ParsedIR {
         let curr_bound = self.ids.len() as u32;
         let new_bound = curr_bound + incr_amount;
         self.ids
-            .resize(new_bound, Variant::default());
+            .resize(new_bound as usize, Variant::default());
         self.block_meta
             .resize(new_bound as usize, BlockMetaFlags::default());
         curr_bound as u32
@@ -669,7 +659,7 @@ impl ParsedIR {
         // the decoration up as a regular variable decoration.
         let mut base_flags = Bitset::default();
         if let Some(meta) = self.find_meta(var.get_self()) {
-            base_flags = meta.decoration.decoration_flags;
+            base_flags = meta.decoration.decoration_flags.clone();
         }
 
         if _type.member_types.is_empty() {
@@ -743,9 +733,9 @@ impl ParsedIR {
         self.loop_iteration_depth += 1;
 
         // todo: do something with it
-        for id in self.ids_for_type[T::get_type() as usize] {
-            if self.ids[id as usize].get_type() as u32 == T::get_type() as u32 {
-                op(id, self.get(id as usize));
+        for id in &self.ids_for_type[T::get_type() as usize] {
+            if self.ids[id.clone() as usize].get_type() as u32 == T::get_type() as u32 {
+                op(id.clone(), self.get(id.clone() as usize));
             }
         }
 
@@ -753,9 +743,9 @@ impl ParsedIR {
     }
 
     fn reset_all_of_type(&mut self, _type: Types) {
-        for id in self.ids_for_type[_type as usize] {
-            if self.ids[id as usize].get_type() as u32 == _type as u32 {
-                self.ids[id as usize].reset();
+        for id in &self.ids_for_type[_type as usize] {
+            if self.ids[id.clone() as usize].get_type() as u32 == _type as u32 {
+                self.ids[id.clone() as usize].reset();
             }
         }
         self.ids_for_type[_type as usize].clear();

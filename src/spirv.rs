@@ -115,7 +115,7 @@ pub enum ExecutionMode {
     ExecutionModeMax = 0x7fffffff,
 }
 
-#[derive(Clone)]
+#[derive(Clone, FromPrimitive)]
 pub enum StorageClass {
     StorageClassUniformConstant = 0,
     StorageClassInput = 1,
@@ -133,7 +133,7 @@ pub enum StorageClass {
     StorageClassMax = 0x7fffffff,
 }
 
-#[derive(Clone)]
+#[derive(Clone, FromPrimitive)]
 pub enum Dim {
     Dim1D = 0,
     Dim2D = 1,
@@ -166,7 +166,7 @@ pub enum SamplerFilterMode {
     SamplerFilterModeMax = 0x7fffffff,
 }
 
-#[derive(Clone)]
+#[derive(Clone, FromPrimitive)]
 pub enum ImageFormat {
     ImageFormatUnknown = 0,
     ImageFormatRgba32f = 1,
@@ -303,7 +303,7 @@ pub enum FPFastMathModeMask {
     FPFastMathModeFastMask = 0x00000010,
 }
 
-#[derive(FromPrimitive)]
+#[derive(Clone, FromPrimitive)]
 pub enum FPRoundingMode {
     FPRoundingModeRTE = 0,
     FPRoundingModeRTZ = 1,
@@ -318,7 +318,7 @@ pub enum LinkageType {
     LinkageTypeMax = 0x7fffffff,
 }
 
-#[derive(Clone)]
+#[derive(Clone, FromPrimitive)]
 pub enum AccessQualifier {
     AccessQualifierReadOnly = 0,
     AccessQualifierWriteOnly = 1,
@@ -402,7 +402,7 @@ pub enum Decoration {
     DecorationMax = 0x7fffffff,
 }
 
-#[derive(FromPrimitive)]
+#[derive(Clone, FromPrimitive)]
 pub enum BuiltIn {
     BuiltInPosition = 0,
     BuiltInPointSize = 1,

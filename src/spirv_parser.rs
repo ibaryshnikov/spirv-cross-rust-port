@@ -2,7 +2,6 @@ use num::FromPrimitive;
 
 use crate::spirv_common::{
     BaseType,
-    HasType,
     IVariant,
     Instruction,
     SPIRBlock,
@@ -21,10 +20,11 @@ use crate::spirv_cross_parsed_ir::{
 };
 use crate::spirv::{
     self as spv,
-//    MAGIC_NUMBER,
+    AccessQualifier,
     ExecutionMode::*,
     Op::*,
     SourceLanguage::*,
+    StorageClass,
 };
 use crate::spirv::Capability::CapabilityKernel;
 use crate::spirv_common::VariantHolder;
@@ -175,7 +175,7 @@ impl Parser {
 
                 // Strings need nul-terminator and consume the whole word.
                 let strlen_words = (entry_point.name.len() + 1 + 3) >> 2;
-                for i in 0..ops[strlen_words + 2] {
+                for _i in 0..ops[strlen_words + 2] {
                     entry_point.interface_variables.push(ops[instruction.length as usize]);
                 }
 
@@ -192,8 +192,8 @@ impl Parser {
             }
 
             OpExecutionMode => {
-                let mut entry_point = self.ir.entry_points
-                    .get(&ops[0])
+                let entry_point = self.ir.entry_points
+                    .get_mut(&ops[0])
                     .unwrap();
                 let mode = FromPrimitive::from_u32(ops[1])
                     .unwrap();
@@ -336,12 +336,12 @@ impl Parser {
                 let decoration: spv::Decoration = FromPrimitive::from_u32(ops[1])
                     .unwrap();
                 if length >= 3 {
-                    self.ir.meta
-                        .get_mut(&id)
-                        .unwrap()
-                        .decoration_word_offset
-                        // TODO: fix data() thing
-                        .insert(decoration as u32, (&ops[2] - self.ir.spirv.data()) as u32);
+//                    self.ir.meta
+//                        .get_mut(&id)
+//                        .unwrap()
+//                        .decoration_word_offset
+//                        // TODO: fix data() thing
+//                        .insert(decoration as u32, (&ops[2] - self.ir.spirv.data()) as u32);
                     self.ir.set_decoration(id, decoration, ops[2]);
                 } else {
                     self.ir.set_decoration(id, decoration, None);
@@ -356,13 +356,13 @@ impl Parser {
                 let decoration: spv::Decoration = FromPrimitive::from_u32(ops[1])
                     .unwrap();
                 if length >= 3 {
-                    self.ir.meta
-                        .get_mut(&id)
-                        .unwrap()
-                        .decoration_word_offset
-                        // TODO: fix data thing
-                        .insert(decoration as u32, (&ops[2] - self.ir.spirv.data()) as u32);
-                    self.ir.set_decoration(id, decoration, ops[2]);
+//                    self.ir.meta
+//                        .get_mut(&id)
+//                        .unwrap()
+//                        .decoration_word_offset
+//                        // TODO: fix data thing
+//                        .insert(decoration as u32, (&ops[2] - self.ir.spirv.data()) as u32);
+//                    self.ir.set_decoration(id, decoration, ops[2]);
                 } else {
                     self.ir.set_decoration(id, decoration, None);
                 }
@@ -482,7 +482,143 @@ impl Parser {
             }
 
             OpTypeMatrix => {
+                let id = ops[0];
+                let colcount = ops[2];
+
+                let base = match self.get(ops[1] as usize) {
+                    VariantHolder::SPIRType(value) => value,
+                    _ => panic!("Bad case"),
+                };
+                let mut matrixbase = base.clone();
+
+                matrixbase.columns = colcount;
+                matrixbase.set_self(id);
+                matrixbase.parent_type = ops[1];
+
+                self.set(id, VariantHolder::SPIRType(matrixbase));
+            }
+
+            OpTypeArray => {
+                let id = ops[0];
+
+                let tid = ops[1];
+                let base = match self.get(tid as usize) {
+                    VariantHolder::SPIRType(value) => value,
+                    _ => panic!("Bad cast"),
+                };
+
+                let mut arraybase = base.clone();
+                arraybase.parent_type = tid;
+
+                let cid = ops[2];
+                self.ir.mark_used_as_array_length(cid);
+                let c = match self.get(cid as usize) {
+                    VariantHolder::SPIRConstant(value) => Some(value),
+                    _ => None,
+                };
+                let literal = c.is_some() && !c.unwrap().specialization;
+
+                arraybase.array_size_literal.push(literal);
+                arraybase.array.push(if literal { c.unwrap().scalar(None, None) } else { cid });
+                // Do NOT set arraybase.self!
+
+                self.set(id, VariantHolder::SPIRType(arraybase));
+            }
+
+            OpTypeRuntimeArray => {
+                let id = ops[0];
+
+                let base = match self.get(ops[1] as usize) {
+                    VariantHolder::SPIRType(value) => value,
+                    _ => panic!("Bad type"),
+                };
+
+                let mut arraybase = base.clone();
+                arraybase.array.push(0);
+                arraybase.array_size_literal.push(true);
+                arraybase.parent_type = ops[1];
+                // Do NOT set arraybase.self!
+
+                self.set(id, VariantHolder::SPIRType(arraybase));
+            }
+
+            OpTypeImage => {
+                let id = ops[0];
+
+                let mut _type = SPIRType::default();
+                _type.basetype = BaseType::Image;
+                _type.image._type = ops[1];
+                _type.image.dim = FromPrimitive::from_u32(ops[2]).unwrap();
+                _type.image.depth = ops[3] == 1;
+                _type.image.arrayed = ops[4] != 0;
+                _type.image.ms = ops[5] != 0;
+                _type.image.sampled = ops[6];
+                _type.image.format = FromPrimitive::from_u32(ops[7]).unwrap();
+                _type.image.access = if length >= 9 {
+                    FromPrimitive::from_u32(ops[8]).unwrap()
+                } else {
+                    AccessQualifier::AccessQualifierMax
+                };
+
+                if _type.image.sampled == 0 {
+                    panic!("OpTypeImage Sampled parameter must not be zero.");
+                }
+
+                self.set(id, VariantHolder::SPIRType(_type));
+            }
+
+            OpTypeSampledImage => {
+                let id = ops[0];
+                let imagetype = ops[1];
+                let base = match self.get(imagetype as usize) {
+                    VariantHolder::SPIRType(value) => value,
+                    _ => panic!("Bad cast"),
+                };
+                let mut _type = base.clone();
+                _type.basetype = BaseType::SampledImage;
+                _type.set_self(id);
+                self.set(id, VariantHolder::SPIRType(_type));
+            }
+
+            OpTypeSampler => {
+                let id = ops[0];
+                let mut _type = SPIRType::default();
+                _type.basetype = BaseType::Sampler;
+                self.set(id, VariantHolder::SPIRType(_type));
+            }
+
+            OpTypePointer => {
+                let id = ops[0];
+
+                let base = match self.get(ops[2] as usize) {
+                    VariantHolder::SPIRType(value) => value,
+                    _ => panic!("Bad cast"),
+                };
+
+                let mut ptrbase = base.clone();
+                ptrbase.pointer = true;
+                ptrbase.pointer_depth += 1;
+                ptrbase.storage = FromPrimitive::from_u32(ops[1]).unwrap();
+
+                match ptrbase.storage {
+                    StorageClass::StorageClassAtomicCounter => {
+                        ptrbase.basetype = BaseType::AtomicCounter;
+                    }
+                    _ => (),
+                };
+
+                ptrbase.parent_type = ops[2];
+
+                // Do NOT set ptrbase.self!
+                self.set(id, VariantHolder::SPIRType(ptrbase));
+            }
+
+            OpTypeStruct => {
                 // ...
+            }
+
+            _ => {
+
             }
 
         }
@@ -512,7 +648,6 @@ impl Parser {
 
         let bound = s[3];
         self.ir.set_id_bounds(bound);
-
         let mut offset = 5;
 
         let mut instructions = vec![];
@@ -570,7 +705,7 @@ impl Parser {
         for i in (offset as usize)..spirv.len() {
             let mut w = spirv[i];
 
-            for j in 0..4 {
+            for _j in 0..4 {
                 w >>= 8;
 
                 let c: char = (w & 0xff) as u8 as char;
