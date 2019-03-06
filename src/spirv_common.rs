@@ -158,85 +158,85 @@ pub trait HasType {
 
 #[derive(Clone, Copy)]
 pub enum Types {
-    TypeNone,
-    TypeType,
-    TypeVariable,
-    TypeConstant,
-    TypeFunction,
-    TypeFunctionPrototype,
-    TypeBlock,
-    TypeExtension,
-    TypeExpression,
-    TypeConstantOp,
-    TypeCombinedImageSampler,
-    TypeAccessChain,
-    TypeUndef,
-    TypeCount,
+    None,
+    Type,
+    Variable,
+    Constant,
+    Function,
+    FunctionPrototype,
+    Block,
+    Extension,
+    Expression,
+    ConstantOp,
+    CombinedImageSampler,
+    AccessChain,
+    Undef,
+    TypeCount, // required to init some arrays
 }
 
 #[derive(Clone)]
 pub enum VariantHolder {
-    SPIRUndef(Box<SPIRUndef>),
-    SPIRCombinedImageSampler(Box<SPIRCombinedImageSampler>),
-    SPIRConstantOp(Box<SPIRConstantOp>),
-    SPIRType(Box<SPIRType>),
-    SPIRExtension(Box<SPIRExtension>),
-    SPIRExpression(Box<SPIRExpression>),
-    SPIRFunctionPrototype(Box<SPIRFunctionPrototype>),
-    SPIRBlock(Box<SPIRBlock>),
-    SPIRFunction(Box<SPIRFunction>),
-    SPIRAccessChain(Box<SPIRAccessChain>),
-    SPIRVariable(Box<SPIRVariable>),
-    SPIRConstant(Box<SPIRConstant>),
+    Undef(Box<SPIRUndef>),
+    CombinedImageSampler(Box<SPIRCombinedImageSampler>),
+    ConstantOp(Box<SPIRConstantOp>),
+    Type(Box<SPIRType>),
+    Extension(Box<SPIRExtension>),
+    Expression(Box<SPIRExpression>),
+    FunctionPrototype(Box<SPIRFunctionPrototype>),
+    Block(Box<SPIRBlock>),
+    Function(Box<SPIRFunction>),
+    AccessChain(Box<SPIRAccessChain>),
+    Variable(Box<SPIRVariable>),
+    Constant(Box<SPIRConstant>),
 }
 
 impl VariantHolder {
     pub fn get_self(&self) -> u32 {
         match self {
-            VariantHolder::SPIRUndef(variant) => variant.get_self(),
-            VariantHolder::SPIRCombinedImageSampler(variant) => variant.get_self(),
-            VariantHolder::SPIRConstantOp(variant) => variant.get_self(),
-            VariantHolder::SPIRType(variant) => variant.get_self(),
-            VariantHolder::SPIRExtension(variant) => variant.get_self(),
-            VariantHolder::SPIRExpression(variant) => variant.get_self(),
-            VariantHolder::SPIRFunctionPrototype(variant) => variant.get_self(),
-            VariantHolder::SPIRBlock(variant) => variant.get_self(),
-            VariantHolder::SPIRFunction(variant) => variant.get_self(),
-            VariantHolder::SPIRAccessChain(variant) => variant.get_self(),
-            VariantHolder::SPIRVariable(variant) => variant.get_self(),
-            VariantHolder::SPIRConstant(variant) => variant.get_self(),
+            VariantHolder::Undef(variant) => variant.get_self(),
+            VariantHolder::CombinedImageSampler(variant) => variant.get_self(),
+            VariantHolder::ConstantOp(variant) => variant.get_self(),
+            VariantHolder::Type(variant) => variant.get_self(),
+            VariantHolder::Extension(variant) => variant.get_self(),
+            VariantHolder::Expression(variant) => variant.get_self(),
+            VariantHolder::FunctionPrototype(variant) => variant.get_self(),
+            VariantHolder::Block(variant) => variant.get_self(),
+            VariantHolder::Function(variant) => variant.get_self(),
+            VariantHolder::AccessChain(variant) => variant.get_self(),
+            VariantHolder::Variable(variant) => variant.get_self(),
+            VariantHolder::Constant(variant) => variant.get_self(),
         }
     }
     pub fn set_self(&mut self, value: u32) {
         match self {
-            VariantHolder::SPIRUndef(variant) => variant.set_self(value),
-            VariantHolder::SPIRCombinedImageSampler(variant) => variant.set_self(value),
-            VariantHolder::SPIRConstantOp(variant) => variant.set_self(value),
-            VariantHolder::SPIRType(variant) => variant.set_self(value),
-            VariantHolder::SPIRExtension(variant) => variant.set_self(value),
-            VariantHolder::SPIRExpression(variant) => variant.set_self(value),
-            VariantHolder::SPIRFunctionPrototype(variant) => variant.set_self(value),
-            VariantHolder::SPIRBlock(variant) => variant.set_self(value),
-            VariantHolder::SPIRFunction(variant) => variant.set_self(value),
-            VariantHolder::SPIRAccessChain(variant) => variant.set_self(value),
-            VariantHolder::SPIRVariable(variant) => variant.set_self(value),
-            VariantHolder::SPIRConstant(variant) => variant.set_self(value),
+            VariantHolder::Undef(variant) => variant.set_self(value),
+            VariantHolder::CombinedImageSampler(variant) => variant.set_self(value),
+            VariantHolder::ConstantOp(variant) => variant.set_self(value),
+            VariantHolder::Type(variant) => variant.set_self(value),
+            VariantHolder::Extension(variant) => variant.set_self(value),
+            VariantHolder::Expression(variant) => variant.set_self(value),
+            VariantHolder::FunctionPrototype(variant) => variant.set_self(value),
+            VariantHolder::Block(variant) => variant.set_self(value),
+            VariantHolder::Function(variant) => variant.set_self(value),
+            VariantHolder::AccessChain(variant) => variant.set_self(value),
+            VariantHolder::Variable(variant) => variant.set_self(value),
+            VariantHolder::Constant(variant) => variant.set_self(value),
         }
     }
     pub fn get_type(&self) -> Types {
         match self {
-            VariantHolder::SPIRUndef(_) => Types::TypeUndef,
-            VariantHolder::SPIRCombinedImageSampler(_) => Types::TypeCombinedImageSampler,
-            VariantHolder::SPIRConstantOp(_) => Types::TypeConstantOp,
-            VariantHolder::SPIRType(_) => Types::TypeType,
-            VariantHolder::SPIRExtension(_) => Types::TypeExtension,
-            VariantHolder::SPIRExpression(_) => Types::TypeExpression,
-            VariantHolder::SPIRFunctionPrototype(_) => Types::TypeFunctionPrototype,
-            VariantHolder::SPIRBlock(_) => Types::TypeBlock,
-            VariantHolder::SPIRFunction(_) => Types::TypeFunction,
-            VariantHolder::SPIRAccessChain(_) => Types::TypeAccessChain,
-            VariantHolder::SPIRVariable(_) => Types::TypeVariable,
-            VariantHolder::SPIRConstant(_) => Types::TypeConstant,
+            VariantHolder::Undef(_) => Types::Undef,
+            VariantHolder::CombinedImageSampler(_) => Types::CombinedImageSampler,
+            VariantHolder::ConstantOp(_) => Types::ConstantOp,
+            VariantHolder::Type(_) => Types::Type,
+            VariantHolder::Extension(_) => Types::Extension,
+            VariantHolder::Expression(_) => Types::Expression,
+            VariantHolder::FunctionPrototype(_) => Types::FunctionPrototype,
+            VariantHolder::Block(_) => Types::Block,
+            VariantHolder::Function(_) => Types::Function,
+            VariantHolder::AccessChain(_) => Types::AccessChain,
+            VariantHolder::Variable(_) => Types::Variable,
+            VariantHolder::Constant(_) => Types::Constant,
         }
     }
 }
@@ -257,7 +257,7 @@ impl IVariant for SPIRUndef {
 }
 impl HasType for SPIRUndef {
     fn get_type() -> Types {
-        Types::TypeUndef
+        Types::Undef
     }
 }
 
@@ -285,7 +285,7 @@ impl IVariant for SPIRCombinedImageSampler {
 }
 impl HasType for SPIRCombinedImageSampler {
     fn get_type() -> Types {
-        Types::TypeCombinedImageSampler
+        Types::CombinedImageSampler
     }
 }
 
@@ -318,7 +318,7 @@ impl IVariant for SPIRConstantOp {
 }
 impl HasType for SPIRConstantOp {
     fn get_type() -> Types {
-        Types::TypeConstantOp
+        Types::ConstantOp
     }
 }
 
@@ -437,7 +437,7 @@ impl IVariant for SPIRType {
 }
 impl HasType for SPIRType {
     fn get_type() -> Types {
-        Types::TypeType
+        Types::Type
     }
 }
 
@@ -452,7 +452,7 @@ impl Default for SPIRType {
             array_size_literal: vec![],
             pointer_depth: 0,
             pointer: false,
-            storage: spv::StorageClass::StorageClassGeneric,
+            storage: spv::StorageClass::Generic,
             member_types: vec![],
             image: Default::default(),
             type_alias: 0,
@@ -502,7 +502,7 @@ impl IVariant for SPIRExtension {
 }
 impl HasType for SPIRExtension {
     fn get_type() -> Types {
-        Types:: TypeExtension
+        Types::Extension
     }
 }
 
@@ -615,7 +615,7 @@ impl IVariant for SPIRExpression {
 }
 impl HasType for SPIRExpression {
     fn get_type() -> Types {
-        Types::TypeExpression
+        Types::Expression
     }
 }
 
@@ -653,7 +653,7 @@ impl IVariant for SPIRFunctionPrototype {
 }
 impl HasType for SPIRFunctionPrototype {
     fn get_type() -> Types {
-        Types::TypeFunctionPrototype
+        Types::FunctionPrototype
     }
 }
 
@@ -682,9 +682,9 @@ pub enum Terminator {
 
 #[derive(Clone)]
 pub enum Merge {
-    MergeNone,
-    MergeLoop,
-    MergeSelection,
+    None,
+    Loop,
+    Selection,
 }
 
 #[derive(Clone)]
@@ -806,7 +806,7 @@ impl IVariant for SPIRBlock {
 
 impl HasType for SPIRBlock {
     fn get_type() -> Types {
-        Types::TypeBlock
+        Types::Block
     }
 }
 
@@ -814,7 +814,7 @@ impl Default for SPIRBlock {
     fn default() -> Self {
         SPIRBlock {
             terminator: Terminator::Unknown,
-            merge: Merge::MergeNone,
+            merge: Merge::None,
             hint: Hints::None,
             next_block: 0,
             merge_block: 0,
@@ -921,7 +921,7 @@ impl IVariant for SPIRFunction {
 }
 impl HasType for SPIRFunction {
     fn get_type() -> Types {
-        Types::TypeFunction
+        Types::Function
     }
 }
 
@@ -998,7 +998,7 @@ impl IVariant for SPIRAccessChain {
 }
 impl HasType for SPIRAccessChain {
     fn get_type() -> Types {
-        Types::TypeAccessChain
+        Types::AccessChain
     }
 }
 
@@ -1081,7 +1081,7 @@ impl IVariant for SPIRVariable {
 }
 impl HasType for SPIRVariable {
     fn get_type() -> Types {
-        Types::TypeVariable
+        Types::Variable
     }
 }
 
@@ -1235,7 +1235,7 @@ impl IVariant for SPIRConstant {
 }
 impl HasType for SPIRConstant {
     fn get_type() -> Types {
-        Types::TypeConstant
+        Types::Constant
     }
 }
 
@@ -1499,7 +1499,7 @@ pub struct Variant {
 impl Variant {
     pub fn set(&mut self, val: VariantHolder) {
         if !self.allow_type_rewrite
-            && self._type as u32 != Types::TypeNone as u32
+            && self._type as u32 != Types::None as u32
             && self._type as u32 != val.get_type() as u32 {
             panic!("Overwriting a variant with new type.");
         }
@@ -1539,7 +1539,7 @@ impl Variant {
 
     pub fn reset(&mut self) {
         self.holder = None;
-        self._type = Types::TypeNone;
+        self._type = Types::None;
     }
 
     pub fn set_allow_type_rewrite(&mut self) {
@@ -1551,7 +1551,7 @@ impl Default for Variant {
     fn default() -> Self {
         Self {
             holder: None,
-            _type: Types::TypeNone,
+            _type: Types::None,
             allow_type_rewrite: false,
         }
     }
@@ -1619,7 +1619,7 @@ impl Default for Decoration {
             qualified_alias: String::new(),
             hlsl_semantic: String::new(),
             decoration_flags: Bitset::default(),
-            builtin_type: spv::BuiltIn::BuiltInMax,
+            builtin_type: spv::BuiltIn::Max,
             location: 0,
             component: 0,
             set: 0,
@@ -1630,7 +1630,7 @@ impl Default for Decoration {
             input_attachment: 0,
             spec_id: 0,
             index: 0,
-            fp_rounding_mode: spv::FPRoundingMode::FPRoundingModeMax,
+            fp_rounding_mode: spv::FPRoundingMode::Max,
             builtin: false,
             extended: DecorationExtended::default(),
         }
@@ -1721,15 +1721,15 @@ pub fn to_unsigned_basetype(width: u32) -> BaseType {
 // Returns true if an arithmetic operation does not change behavior depending on signedness.
 fn opcode_is_sign_invariant(opcode: spv::Op) -> bool {
     match opcode {
-        spv::Op::OpIEqual => true,
-        spv::Op::OpINotEqual => true,
-        spv::Op::OpISub => true,
-        spv::Op::OpIAdd => true,
-        spv::Op::OpIMul => true,
-        spv::Op::OpShiftLeftLogical => true,
-        spv::Op::OpBitwiseOr => true,
-        spv::Op::OpBitwiseXor => true,
-        spv::Op::OpBitwiseAnd => true,
+        spv::Op::IEqual => true,
+        spv::Op::INotEqual => true,
+        spv::Op::ISub => true,
+        spv::Op::IAdd => true,
+        spv::Op::IMul => true,
+        spv::Op::ShiftLeftLogical => true,
+        spv::Op::BitwiseOr => true,
+        spv::Op::BitwiseXor => true,
+        spv::Op::BitwiseAnd => true,
         _ => false,
     }
 }

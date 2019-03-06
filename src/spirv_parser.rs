@@ -2,16 +2,17 @@ use num::FromPrimitive;
 
 use crate::spirv_common::{
     BaseType,
+    Extension,
     IVariant,
     Instruction,
     SPIRBlock,
     SPIREntryPoint,
     SPIRExtension,
     SPIRType,
-    Extension,
     SPIRFunction,
     SPIRUndef,
     Types,
+    VariantHolder,
     to_signed_basetype,
     to_unsigned_basetype,
 };
@@ -21,13 +22,12 @@ use crate::spirv_cross_parsed_ir::{
 use crate::spirv::{
     self as spv,
     AccessQualifier,
-    ExecutionMode::*,
-    Op::*,
-    SourceLanguage::*,
+    Capability,
+    ExecutionMode,
+    Op,
+    SourceLanguage,
     StorageClass,
 };
-use crate::spirv::Capability::CapabilityKernel;
-use crate::spirv_common::VariantHolder;
 
 struct Parser {
     ir: ParsedIR,
@@ -55,7 +55,7 @@ impl Parser {
     }
     fn decoration_is_string(decoration: spv::Decoration) -> bool {
         match decoration {
-            spv::Decoration::DecorationHlslSemanticGOOGLE => true,
+            spv::Decoration::HlslSemantic => true,
             _ => false,
         }
     }
@@ -84,33 +84,33 @@ impl Parser {
         let ops = ops.unwrap();
 
         match op {
-            OpMemoryModel => (),
-            OpSourceContinued => (),
-            OpSourceExtension => (),
-            OpNop => (),
-            OpLine => (),
-            OpNoLine => (),
-            OpString => (),
-            OpModuleProcessed => (),
+            Op::MemoryModel => (),
+            Op::SourceContinued => (),
+            Op::SourceExtension => (),
+            Op::Nop => (),
+            Op::Line => (),
+            Op::NoLine => (),
+            Op::String => (),
+            Op::ModuleProcessed => (),
 
-            OpSource => {
+            Op::Source => {
                 let lang = FromPrimitive::from_u32(ops[0])
                     .unwrap();
 
                 match lang {
-                    SourceLanguageESSL => {
+                    SourceLanguage::ESSL => {
                         self.ir.source.es = true;
                         self.ir.source.version = ops[1];
                         self.ir.source.known = true;
                         self.ir.source.hlsl = false;
                     }
-                    SourceLanguageGLSL => {
+                    SourceLanguage::GLSL => {
                         self.ir.source.es = false;
                         self.ir.source.version = ops[1];
                         self.ir.source.known = true;
                         self.ir.source.hlsl = false;
                     }
-                    SourceLanguageHLSL => {
+                    SourceLanguage::HLSL => {
                         // For purposes of cross-compiling, this is GLSL 450.
                         self.ir.source.es = false;
                         self.ir.source.version = 450;
@@ -124,25 +124,25 @@ impl Parser {
 
             }
 
-            OpUndef => {
+            Op::Undef => {
                 let result_type = ops[0];
                 let id = ops[1];
                 let mut value = Box::new(SPIRUndef::new(result_type));
                 value.set_self(id);
 
-                self.set(id, VariantHolder::SPIRUndef(value));
+                self.set(id, VariantHolder::Undef(value));
             }
 
-            OpCapability => {
+            Op::Capability => {
                 let cap = FromPrimitive::from_u32(ops[0])
                     .unwrap();
-                if let CapabilityKernel = cap {
+                if let Capability::Kernel = cap {
                     panic!("Kernel capability not supported.");
                 }
                 self.ir.declared_capabilities.push(cap);
             }
 
-            OpExtension => {
+            Op::Extension => {
                 let ext = Self::extract_string(
                     &self.ir.spirv,
                     instruction.offset,
@@ -150,7 +150,7 @@ impl Parser {
                 self.ir.declared_extensions.push(ext);
             }
 
-            OpExtInstImport => {
+            Op::ExtInstImport => {
                 let id = ops[0];
                 let ext = Self::extract_string(
                     &self.ir.spirv,
@@ -159,12 +159,12 @@ impl Parser {
                 let kind = Extension::from_str(&ext);
                 let mut value = Box::new(SPIRExtension::new(kind));
                 value.set_self(id);
-                self.set(id, VariantHolder::SPIRExtension(value));
+                self.set(id, VariantHolder::Extension(value));
 
                 // Other SPIR-V extensions which have ExtInstrs are currently not supported.
             }
 
-            OpEntryPoint => {
+            Op::EntryPoint => {
                 let model = FromPrimitive::from_u32(ops[0])
                     .unwrap();
 
@@ -192,26 +192,26 @@ impl Parser {
                 self.ir.entry_points.insert(ops[1], entry_point);
             }
 
-            OpExecutionMode => {
+            Op::ExecutionMode => {
                 let entry_point = self.ir.entry_points
                     .get_mut(&ops[0])
                     .unwrap();
-                let mode: spv::ExecutionMode = FromPrimitive::from_u32(ops[1])
+                let mode: ExecutionMode = FromPrimitive::from_u32(ops[1])
                     .unwrap();
                 entry_point.flags.set(mode.clone() as u32);
 
                 match mode {
-                    ExecutionModeInvocations => {
+                    ExecutionMode::Invocations => {
                         entry_point.invocations = ops[2];
                     }
 
-                    ExecutionModeLocalSize => {
+                    ExecutionMode::LocalSize => {
                         entry_point.workgroup_size.x = ops[2];
                         entry_point.workgroup_size.y = ops[3];
                         entry_point.workgroup_size.z = ops[4];
                     }
 
-                    ExecutionModeOutputVertices => {
+                    ExecutionMode::OutputVertices => {
                         entry_point.output_vertices = ops[2];
                     }
 
@@ -219,7 +219,7 @@ impl Parser {
                 }
             }
 
-            OpName => {
+            Op::Name => {
                 let id = ops[0];
                 self.ir.set_name(
                     id,
@@ -230,7 +230,7 @@ impl Parser {
                 );
             }
 
-            OpMemberName => {
+            Op::MemberName => {
                 let id = ops[0];
                 let member = ops[1];
                 self.ir.set_member_name(
@@ -243,12 +243,12 @@ impl Parser {
                 )
             }
 
-            OpDecorationGroup => {
+            Op::DecorationGroup => {
                 // Noop, this simply means an ID should be a collector of decorations.
                 // The meta array is already a flat array of decorations which will contain the relevant decorations.
             }
 
-            OpGroupDecorate => {
+            Op::GroupDecorate => {
                 let group_id = ops[0];
                 let decorations = &self.ir.meta
                     .get_mut(&group_id)
@@ -290,7 +290,7 @@ impl Parser {
                 }
             }
 
-            OpGroupMemberDecorate => {
+            Op::GroupMemberDecorate => {
                 let group_id = ops[0];
                 let flags = &self.ir.meta[&group_id]
                     .decoration.decoration_flags
@@ -325,7 +325,7 @@ impl Parser {
                 }
             }
 
-            OpDecorate => {
+            Op::Decorate => {
                 // OpDecorateId technically supports an array of arguments, but our only supported decorations are single uint,
                 // so merge decorate and decorate-id here.
                 let id = ops[0];
@@ -345,7 +345,7 @@ impl Parser {
                 }
             }
 
-            OpDecorateId => {
+            Op::DecorateId => {
                 // OpDecorateId technically supports an array of arguments, but our only supported decorations are single uint,
                 // so merge decorate and decorate-id here.
                 let id = ops[0];
@@ -365,7 +365,7 @@ impl Parser {
                 }
             }
 
-            OpDecorateStringGOOGLE => {
+            Op::DecorateString => {
                 let id = ops[0];
                 let decoration = FromPrimitive::from_u32(ops[1])
                     .unwrap();
@@ -376,7 +376,7 @@ impl Parser {
                 );
             }
 
-            OpMemberDecorate => {
+            Op::MemberDecorate => {
                 let id = ops[0];
                 let member = ops[1];
                 let decoration = FromPrimitive::from_u32(ops[2])
@@ -398,7 +398,7 @@ impl Parser {
                 }
             }
 
-            OpMemberDecorateStringGOOGLE => {
+            Op::MemberDecorateString => {
                 let id = ops[0];
                 let member = ops[1];
                 let decoration = FromPrimitive::from_u32(ops[2])
@@ -411,22 +411,22 @@ impl Parser {
                 );
             }
 
-            OpTypeVoid => {
+            Op::TypeVoid => {
                 let id = ops[0];
                 let mut value = Box::new(SPIRType::default());
                 value.basetype = BaseType::Void;
-                self.set(id, VariantHolder::SPIRType(value));
+                self.set(id, VariantHolder::Type(value));
             }
 
-            OpTypeBool => {
+            Op::TypeBool => {
                 let id = ops[0];
                 let mut value = Box::new(SPIRType::default());
                 value.basetype = BaseType::Boolean;
                 value.width = 1;
-                self.set(id, VariantHolder::SPIRType(value));
+                self.set(id, VariantHolder::Type(value));
             }
 
-            OpTypeFloat => {
+            Op::TypeFloat => {
                 let id = ops[0];
 		        let width = ops[1];
 
@@ -441,10 +441,10 @@ impl Parser {
                     panic!("Unrecognized bit-width of floating point type.");
                 }
                 value.width = width;
-		        self.set(id, VariantHolder::SPIRType(value));
+		        self.set(id, VariantHolder::Type(value));
             }
 
-            OpTypeInt => {
+            Op::TypeInt => {
                 let id = ops[0];
                 let width = ops[1];
                 let signedness = ops[2] != 0;
@@ -455,18 +455,18 @@ impl Parser {
                      to_unsigned_basetype(width)
                  };
                 value.width = width;
-                self.set(id, VariantHolder::SPIRType(value));
+                self.set(id, VariantHolder::Type(value));
             }
 
             // Build composite types by "inheriting".
 	        // NOTE: The self member is also copied! For pointers and array modifiers this is a good thing
 	        // since we can refer to decorations on pointee classes which is needed for UBO/SSBO, I/O blocks in geometry/tess etc.
-            OpTypeVector => {
+            Op::TypeVector => {
                 let id = ops[0];
                 let vecsize = ops[2];
 
                 let base = match self.get(ops[1] as usize) {
-                    VariantHolder::SPIRType(value) => value,
+                    VariantHolder::Type(value) => value,
                     _ => panic!("Bad cast"),
                 };
 
@@ -475,15 +475,15 @@ impl Parser {
                 vecbase.set_self(id);
                 vecbase.parent_type = ops[1];
 
-                self.set(id, VariantHolder::SPIRType(vecbase));
+                self.set(id, VariantHolder::Type(vecbase));
             }
 
-            OpTypeMatrix => {
+            Op::TypeMatrix => {
                 let id = ops[0];
                 let colcount = ops[2];
 
                 let base = match self.get(ops[1] as usize) {
-                    VariantHolder::SPIRType(value) => value,
+                    VariantHolder::Type(value) => value,
                     _ => panic!("Bad case"),
                 };
                 let mut matrixbase = base.clone();
@@ -492,15 +492,15 @@ impl Parser {
                 matrixbase.set_self(id);
                 matrixbase.parent_type = ops[1];
 
-                self.set(id, VariantHolder::SPIRType(matrixbase));
+                self.set(id, VariantHolder::Type(matrixbase));
             }
 
-            OpTypeArray => {
+            Op::TypeArray => {
                 let id = ops[0];
 
                 let tid = ops[1];
                 let base = match self.get(tid as usize) {
-                    VariantHolder::SPIRType(value) => value,
+                    VariantHolder::Type(value) => value,
                     _ => panic!("Bad cast"),
                 };
 
@@ -510,7 +510,7 @@ impl Parser {
                 let cid = ops[2];
                 self.ir.mark_used_as_array_length(cid);
                 let c = match self.get(cid as usize) {
-                    VariantHolder::SPIRConstant(value) => Some(value),
+                    VariantHolder::Constant(value) => Some(value),
                     _ => None,
                 };
                 let literal = c.is_some() && !c.unwrap().specialization;
@@ -519,14 +519,14 @@ impl Parser {
                 arraybase.array.push(if literal { c.unwrap().scalar(None, None) } else { cid });
                 // Do NOT set arraybase.self!
 
-                self.set(id, VariantHolder::SPIRType(arraybase));
+                self.set(id, VariantHolder::Type(arraybase));
             }
 
-            OpTypeRuntimeArray => {
+            Op::TypeRuntimeArray => {
                 let id = ops[0];
 
                 let base = match self.get(ops[1] as usize) {
-                    VariantHolder::SPIRType(value) => value,
+                    VariantHolder::Type(value) => value,
                     _ => panic!("Bad type"),
                 };
 
@@ -536,10 +536,10 @@ impl Parser {
                 arraybase.parent_type = ops[1];
                 // Do NOT set arraybase.self!
 
-                self.set(id, VariantHolder::SPIRType(arraybase));
+                self.set(id, VariantHolder::Type(arraybase));
             }
 
-            OpTypeImage => {
+            Op::TypeImage => {
                 let id = ops[0];
 
                 let mut _type = Box::new(SPIRType::default());
@@ -554,41 +554,41 @@ impl Parser {
                 _type.image.access = if length >= 9 {
                     FromPrimitive::from_u32(ops[8]).unwrap()
                 } else {
-                    AccessQualifier::AccessQualifierMax
+                    AccessQualifier::Max
                 };
 
                 if _type.image.sampled == 0 {
                     panic!("OpTypeImage Sampled parameter must not be zero.");
                 }
 
-                self.set(id, VariantHolder::SPIRType(_type));
+                self.set(id, VariantHolder::Type(_type));
             }
 
-            OpTypeSampledImage => {
+            Op::TypeSampledImage => {
                 let id = ops[0];
                 let imagetype = ops[1];
                 let base = match self.get(imagetype as usize) {
-                    VariantHolder::SPIRType(value) => value,
+                    VariantHolder::Type(value) => value,
                     _ => panic!("Bad cast"),
                 };
                 let mut _type = base.clone();
                 _type.basetype = BaseType::SampledImage;
                 _type.set_self(id);
-                self.set(id, VariantHolder::SPIRType(_type));
+                self.set(id, VariantHolder::Type(_type));
             }
 
-            OpTypeSampler => {
+            Op::TypeSampler => {
                 let id = ops[0];
                 let mut _type = Box::new(SPIRType::default());
                 _type.basetype = BaseType::Sampler;
-                self.set(id, VariantHolder::SPIRType(_type));
+                self.set(id, VariantHolder::Type(_type));
             }
 
-            OpTypePointer => {
+            Op::TypePointer => {
                 let id = ops[0];
 
                 let base = match self.get(ops[2] as usize) {
-                    VariantHolder::SPIRType(value) => value,
+                    VariantHolder::Type(value) => value,
                     _ => panic!("Bad cast"),
                 };
 
@@ -597,17 +597,17 @@ impl Parser {
                 ptrbase.pointer_depth += 1;
                 ptrbase.storage = FromPrimitive::from_u32(ops[1]).unwrap();
 
-                if let StorageClass::StorageClassAtomicCounter = ptrbase.storage {
+                if let StorageClass::AtomicCounter = ptrbase.storage {
                     ptrbase.basetype = BaseType::AtomicCounter;
                 };
 
                 ptrbase.parent_type = ops[2];
 
                 // Do NOT set ptrbase.self!
-                self.set(id, VariantHolder::SPIRType(ptrbase));
+                self.set(id, VariantHolder::Type(ptrbase));
             }
 
-            OpTypeStruct => {
+            Op::TypeStruct => {
                 // ...
             }
 
