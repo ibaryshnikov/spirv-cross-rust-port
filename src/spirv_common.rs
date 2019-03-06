@@ -77,7 +77,7 @@ impl Bitset {
         }
     }
 
-    pub fn for_each_bit(&self, op: impl FnMut(u32) -> ()) {
+    pub fn for_each_bit(&self, mut op: impl FnMut(u32) -> ()) {
         // TODO: Add ctz-based iteration.
         for i in 0..64 {
             if (self.lower & (1u64 << i)) != 0 {
@@ -104,7 +104,7 @@ impl Bitset {
     }
 
     fn empty(&self) -> bool {
-        self.lower == 0 && self.higher.len() == 0
+        self.lower == 0 && self.higher.is_empty()
     }
 
 }
@@ -127,13 +127,9 @@ impl PartialEq for Bitset {
 
         true
     }
-
-    fn ne(&self, other: &Bitset) -> bool {
-        !(self == other)
-    }
 }
 
-fn merge(list: &Vec<String>) -> String {
+fn merge(list: &[String]) -> String {
     list.join(", ")
 }
 
@@ -180,18 +176,18 @@ pub enum Types {
 
 #[derive(Clone)]
 pub enum VariantHolder {
-    SPIRUndef(SPIRUndef),
-    SPIRCombinedImageSampler(SPIRCombinedImageSampler),
-    SPIRConstantOp(SPIRConstantOp),
-    SPIRType(SPIRType),
-    SPIRExtension(SPIRExtension),
-    SPIRExpression(SPIRExpression),
-    SPIRFunctionPrototype(SPIRFunctionPrototype),
-    SPIRBlock(SPIRBlock),
-    SPIRFunction(SPIRFunction),
-    SPIRAccessChain(SPIRAccessChain),
-    SPIRVariable(SPIRVariable),
-    SPIRConstant(SPIRConstant),
+    SPIRUndef(Box<SPIRUndef>),
+    SPIRCombinedImageSampler(Box<SPIRCombinedImageSampler>),
+    SPIRConstantOp(Box<SPIRConstantOp>),
+    SPIRType(Box<SPIRType>),
+    SPIRExtension(Box<SPIRExtension>),
+    SPIRExpression(Box<SPIRExpression>),
+    SPIRFunctionPrototype(Box<SPIRFunctionPrototype>),
+    SPIRBlock(Box<SPIRBlock>),
+    SPIRFunction(Box<SPIRFunction>),
+    SPIRAccessChain(Box<SPIRAccessChain>),
+    SPIRVariable(Box<SPIRVariable>),
+    SPIRConstant(Box<SPIRConstant>),
 }
 
 impl VariantHolder {
@@ -255,8 +251,8 @@ impl IVariant for SPIRUndef {
     fn get_self(&self) -> u32 {
         self._self
     }
-    fn set_self(&mut self, _self: u32) {
-        self._self = _self;
+    fn set_self(&mut self, value: u32) {
+        self._self = value;
     }
 }
 impl HasType for SPIRUndef {
@@ -283,8 +279,8 @@ impl IVariant for SPIRCombinedImageSampler {
     fn get_self(&self) -> u32 {
         self._self
     }
-    fn set_self(&mut self, _self: u32) {
-        self._self = _self;
+    fn set_self(&mut self, value: u32) {
+        self._self = value;
     }
 }
 impl HasType for SPIRCombinedImageSampler {
@@ -316,8 +312,8 @@ impl IVariant for SPIRConstantOp {
     fn get_self(&self) -> u32 {
         self._self
     }
-    fn set_self(&mut self, _self: u32) {
-        self._self = _self;
+    fn set_self(&mut self, value: u32) {
+        self._self = value;
     }
 }
 impl HasType for SPIRConstantOp {
@@ -435,8 +431,8 @@ impl IVariant for SPIRType {
     fn get_self(&self) -> u32 {
         self._self
     }
-    fn set_self(&mut self, _self: u32) {
-        self._self = _self;
+    fn set_self(&mut self, value: u32) {
+        self._self = value;
     }
 }
 impl HasType for SPIRType {
@@ -500,8 +496,8 @@ impl IVariant for SPIRExtension {
     fn get_self(&self) -> u32 {
         self._self
     }
-    fn set_self(&mut self, _self: u32) {
-        self._self = _self;
+    fn set_self(&mut self, value: u32) {
+        self._self = value;
     }
 }
 impl HasType for SPIRExtension {
@@ -613,8 +609,8 @@ impl IVariant for SPIRExpression {
     fn get_self(&self) -> u32 {
         self._self
     }
-    fn set_self(&mut self, _self: u32) {
-        self._self = _self;
+    fn set_self(&mut self, value: u32) {
+        self._self = value;
     }
 }
 impl HasType for SPIRExpression {
@@ -651,8 +647,8 @@ impl IVariant for SPIRFunctionPrototype {
     fn get_self(&self) -> u32 {
         self._self
     }
-    fn set_self(&mut self, _self: u32) {
-        self._self = _self;
+    fn set_self(&mut self, value: u32) {
+        self._self = value;
     }
 }
 impl HasType for SPIRFunctionPrototype {
@@ -693,13 +689,15 @@ pub enum Merge {
 
 #[derive(Clone)]
 enum Hints {
-    HintNone,
-    HintUnroll,
-    HintDontUnroll,
-    HintFlatten,
-    HintDontFlatten,
+    None,
+    Unroll,
+    DontUnroll,
+    Flatten,
+    DontFlatten,
 }
 
+// TODO: remove MergeTo prefix
+#[allow(clippy::enum_variant_names)]
 enum Method {
     MergeToSelectForLoop,
     MergeToDirectForLoop,
@@ -801,8 +799,8 @@ impl IVariant for SPIRBlock {
     fn get_self(&self) -> u32 {
         self._self
     }
-    fn set_self(&mut self, _self: u32) {
-        self._self = _self;
+    fn set_self(&mut self, value: u32) {
+        self._self = value;
     }
 }
 
@@ -817,7 +815,7 @@ impl Default for SPIRBlock {
         SPIRBlock {
             terminator: Terminator::Unknown,
             merge: Merge::MergeNone,
-            hint: Hints::HintNone,
+            hint: Hints::None,
             next_block: 0,
             merge_block: 0,
             continue_block: 0,
@@ -917,8 +915,8 @@ impl IVariant for SPIRFunction {
     fn get_self(&self) -> u32 {
         self._self
     }
-    fn set_self(&mut self, _self: u32) {
-        self._self = _self;
+    fn set_self(&mut self, value: u32) {
+        self._self = value;
     }
 }
 impl HasType for SPIRFunction {
@@ -994,8 +992,8 @@ impl IVariant for SPIRAccessChain {
     fn get_self(&self) -> u32 {
         self._self
     }
-    fn set_self(&mut self, _self: u32) {
-        self._self = _self;
+    fn set_self(&mut self, value: u32) {
+        self._self = value;
     }
 }
 impl HasType for SPIRAccessChain {
@@ -1077,8 +1075,8 @@ impl IVariant for SPIRVariable {
     fn get_self(&self) -> u32 {
         self._self
     }
-    fn set_self(&mut self, _self: u32) {
-        self._self = _self;
+    fn set_self(&mut self, value: u32) {
+        self._self = value;
     }
 }
 impl HasType for SPIRVariable {
@@ -1131,10 +1129,10 @@ struct Constant(u64);
 
 impl Constant {
     fn from_i32(value: i32) -> Self {
-        Self(u32::from_ne_bytes(value.to_ne_bytes()) as u64)
+        Self(u64::from(u32::from_ne_bytes(value.to_ne_bytes())))
     }
     fn from_u32(value: u32) -> Self {
-        Self(value as u64)
+        Self(u64::from(value))
     }
     fn from_i64(value: i64) -> Self {
         Self(u64::from_ne_bytes(value.to_ne_bytes()))
@@ -1143,27 +1141,27 @@ impl Constant {
         Self(value)
     }
     fn from_f32(value: f32) -> Self {
-        Self(value.to_bits() as u64)
+        Self(u64::from(value.to_bits()))
     }
     fn from_f64(value: f64) -> Self {
         Self(value.to_bits())
     }
-    fn to_u32(&self) -> u32 {
+    fn to_u32(self) -> u32 {
         self.0 as u32
     }
-    fn to_i32(&self) -> i32 {
+    fn to_i32(self) -> i32 {
         i32::from_ne_bytes((self.0 as u32).to_ne_bytes())
     }
-    fn to_i64(&self) -> i64 {
+    fn to_i64(self) -> i64 {
         i64::from_ne_bytes(self.0.to_ne_bytes())
     }
-    fn to_u64(&self) -> u64 {
+    fn to_u64(self) -> u64 {
         self.0
     }
-    fn to_f32(&self) -> f32 {
+    fn to_f32(self) -> f32 {
         f32::from_bits(self.0 as u32)
     }
-    fn to_f64(&self) -> f64 {
+    fn to_f64(self) -> f64 {
         f64::from_bits(self.0)
     }
 }
@@ -1231,8 +1229,8 @@ impl IVariant for SPIRConstant {
     fn get_self(&self) -> u32 {
         self._self
     }
-    fn set_self(&mut self, _self: u32) {
-        self._self = _self;
+    fn set_self(&mut self, value: u32) {
+        self._self = value;
     }
 }
 impl HasType for SPIRConstant {
@@ -1318,7 +1316,7 @@ impl SPIRConstant {
 
     fn new_with_vector_elements_and_specialization(
         constant_type: u32,
-        vector_elements: &Vec<SPIRConstant>,
+        vector_elements: &[SPIRConstant],
         specialized: bool,
     ) -> Self {
         let mut constant = SPIRConstant {
@@ -1335,20 +1333,20 @@ impl SPIRConstant {
         let matrix = vector_elements[0].m.c[0].vecsize > 1;
         if matrix {
             constant.m.columns = vector_elements.len() as u32;
-            for i in 0..vector_elements.len() {
-                constant.m.c[i] = vector_elements[i].m.c[0];
-                if vector_elements[i].specialization {
-                    constant.m.id[i] = vector_elements[i].get_self();
+            for (i, element) in vector_elements.iter().enumerate() {
+                constant.m.c[i] = element.m.c[0];
+                if element.specialization {
+                    constant.m.id[i] = element.get_self();
                     constant.m.id[i] = 0;
                 }
             }
         } else {
             constant.m.c[0].vecsize = vector_elements.len() as u32;
             constant.m.columns = 1;
-            for i in 0..vector_elements.len() {
-                constant.m.c[0].r[i] = vector_elements[i].m.c[0].r[0];
-                if vector_elements[i].specialization {
-                    constant.m.c[0].id[i] = vector_elements[i].get_self();
+            for (i, element) in vector_elements.iter().enumerate() {
+                constant.m.c[0].r[i] = element.m.c[0].r[0];
+                if element.specialization {
+                    constant.m.c[0].id[i] = element.get_self();
                     constant.m.c[0].id[i] = 0;
                 }
             }
@@ -1359,9 +1357,9 @@ impl SPIRConstant {
 
     fn f16_to_f32(u16_value: u16) -> f32 {
         // Based on the GLM implementation.
-        let s: i32 = ((u16_value >> 15) & 0x1) as i32;
-        let mut e: i32 = ((u16_value >> 10) & 0x1f) as i32;
-        let mut m: i32 = ((u16_value >> 0) & 0x3ff) as i32;
+        let s = i32::from((u16_value >> 15) & 0x1);
+        let mut e = i32::from((u16_value >> 10) & 0x1f);
+        let mut m = i32::from(u16_value & 0x3ff);
 
         if e == 0 {
             if m == 0 {
@@ -1379,18 +1377,18 @@ impl SPIRConstant {
         }
         else if e == 31 {
             if m == 0 {
-                let u: u32 = ((s as u32) << 31) | 0x7f800000u32;
+                let u: u32 = ((s as u32) << 31) | 0x7f80_0000u32;
                 return f32::from_bits(u);
             } else {
-                let u: u32 = ((s as u32) << 31) | 0x7f800000u32 | ((m as u32) << 13);
+                let u: u32 = ((s as u32) << 31) | 0x7f80_0000u32 | ((m as u32) << 13);
                 return f32::from_bits(u);
             }
         }
 
         e += 127 - 15;
         m <<= 13;
-        let u: u32 = ((s as u32) << 31) | ((e as u32) << 23) | m as u32;
-        return f32::from_bits(u);
+        let u = ((s as u32) << 31) | ((e as u32) << 23) | m as u32;
+        f32::from_bits(u)
     }
 
     fn specialization_constant_id(&self, col: usize, row: usize) -> u32 {
@@ -1505,12 +1503,22 @@ impl Variant {
             && self._type as u32 != val.get_type() as u32 {
             panic!("Overwriting a variant with new type.");
         }
-        self.holder = Some(val);
         self._type = val.get_type();
+        self.holder = Some(val);
         self.allow_type_rewrite = false;
     }
     pub fn get(&self) -> &VariantHolder {
-        &self.holder.unwrap()
+        match &self.holder {
+            Some(value) => value,
+            None => panic!("Holder is None"),
+        }
+    }
+
+    pub fn get_mut(&mut self) -> &mut VariantHolder {
+        match &mut self.holder {
+            Some(value) => value,
+            None => panic!("Holder is None"),
+        }
     }
 
     pub fn get_type(&self) -> Types {
@@ -1660,7 +1668,7 @@ struct Hasher {
 
 impl Hasher {
     fn u32(&mut self, value: u32) {
-        self.h = (self.h * 0x100000001b3u64) ^ (value as u64);
+        self.h = (self.h * 0x0100_0000_01b3u64) ^ (u64::from(value));
     }
     fn get(&self) -> u64 {
         self.h

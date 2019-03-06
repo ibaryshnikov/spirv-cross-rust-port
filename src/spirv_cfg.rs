@@ -90,12 +90,10 @@ impl<'a> Cfg<'a> {
     }
 
     fn get_visit_order(&self, block: u32) -> u32 {
-        let value = self.visit_order
-            .get(&block)
-            .unwrap();
+        let value = &self.visit_order[&block];
         let v = value.v;
         assert!(v > 0);
-        return v as u32;
+        v as u32
     }
 
     fn find_common_dominator(&self, mut a: u32, mut b: u32) -> u32 {
@@ -106,7 +104,7 @@ impl<'a> Cfg<'a> {
                 b = self.get_immediate_dominator(b);
             }
         }
-        return a;
+        a
     }
 
     fn build_immediate_dominators(&mut self) {
@@ -198,7 +196,7 @@ impl<'a> Cfg<'a> {
             order.v = self.visit_count as i32;
         };
         self.post_order.push(block_id);
-        return true;
+        true
     }
 
     fn build_post_order_visit_order(&mut self) {
@@ -211,7 +209,7 @@ impl<'a> Cfg<'a> {
 
     fn add_branch(&mut self, from: u32, to: u32) {
         let add_unique = |l: &mut Vec<u32>, value: u32| {
-            if let None = l.iter().find(|x| **x == value) {
+            if l.iter().find(|x| **x == value).is_none() {
                 l.push(value);
             }
         };
@@ -241,7 +239,7 @@ impl<'a> Cfg<'a> {
         &self,
         seen_blocks: &mut HashSet<u32>,
         block: u32,
-        mut op: impl FnMut(u32) -> (),
+        op: impl Fn(u32) -> (),
     ) {
         if seen_blocks.contains(&block) {
             return;
@@ -249,7 +247,7 @@ impl<'a> Cfg<'a> {
         seen_blocks.insert(block);
         op(block);
         for b in self.get_succeeding_edges(block) {
-            self.walk_from(seen_blocks, *b, op);
+            self.walk_from(seen_blocks, *b, &op);
         }
     }
 

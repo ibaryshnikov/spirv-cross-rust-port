@@ -19,7 +19,7 @@ use crate::spirv_common::{
 use crate::spirv as spv;
 
 enum BlockMetaFlagBits {
-    BLOCK_META_LOOP_HEADER_BIT = 1 << 0,       // 1
+    BLOCK_META_LOOP_HEADER_BIT = 1,            // 1
     BLOCK_META_CONTINUE_BIT = 1 << 1,          // 2
     BLOCK_META_LOOP_MERGE_BIT = 1 << 2,        // 4
     BLOCK_META_SELECTION_MERGE_BIT = 1 << 3,   // 8
@@ -111,7 +111,7 @@ impl ParsedIR {
         let meta = self.meta
             .get_mut(&id)
             .unwrap();
-        let mut _str = &meta
+        let mut _str = &mut meta
             .decoration
             .alias;
         _str.clear();
@@ -212,13 +212,10 @@ impl ParsedIR {
             .decoration
             .decoration_flags.set(decoration as u32);
 
-        match decoration {
-            spv::Decoration::DecorationHlslSemanticGOOGLE => {
-                meta
-                    .decoration
-                    .hlsl_semantic = argument;
-            }
-            _ => ()
+        if let spv::Decoration::DecorationHlslSemanticGOOGLE = decoration {
+            meta
+                .decoration
+                .hlsl_semantic = argument;
         }
     }
 
@@ -248,18 +245,18 @@ impl ParsedIR {
         }
 
         match decoration {
-            spv::Decoration::DecorationBuiltIn=> dec.builtin_type as u32,
-            spv::Decoration::DecorationLocation=> dec.location,
-            spv::Decoration::DecorationComponent=> dec.component,
-            spv::Decoration::DecorationOffset=> dec.offset,
-            spv::Decoration::DecorationBinding=> dec.binding,
-            spv::Decoration::DecorationDescriptorSet=> dec.set,
-            spv::Decoration::DecorationInputAttachmentIndex=> dec.input_attachment,
-            spv::Decoration::DecorationSpecId=> dec.spec_id,
-            spv::Decoration::DecorationArrayStride=> dec.array_stride,
-            spv::Decoration::DecorationMatrixStride=> dec.matrix_stride,
-            spv::Decoration::DecorationIndex=> dec.index,
-            spv::Decoration::DecorationFPRoundingMode=> dec.fp_rounding_mode as u32,
+            spv::Decoration::DecorationBuiltIn => dec.builtin_type.clone() as u32,
+            spv::Decoration::DecorationLocation => dec.location,
+            spv::Decoration::DecorationComponent => dec.component,
+            spv::Decoration::DecorationOffset => dec.offset,
+            spv::Decoration::DecorationBinding => dec.binding,
+            spv::Decoration::DecorationDescriptorSet => dec.set,
+            spv::Decoration::DecorationInputAttachmentIndex => dec.input_attachment,
+            spv::Decoration::DecorationSpecId => dec.spec_id,
+            spv::Decoration::DecorationArrayStride => dec.array_stride,
+            spv::Decoration::DecorationMatrixStride => dec.matrix_stride,
+            spv::Decoration::DecorationIndex => dec.index,
+            spv::Decoration::DecorationFPRoundingMode => dec.fp_rounding_mode.clone() as u32,
             _ => 1,
         }
     }
@@ -274,13 +271,12 @@ impl ParsedIR {
             Some(m) => m,
         };
 
-        let dec = &meta.decoration;
-        if !dec.decoration_flags.get(decoration as u32) {
+        if !meta.decoration.decoration_flags.get(decoration as u32) {
             return self.empty_string.to_owned();
         }
 
         match decoration {
-            spv::Decoration::DecorationHlslSemanticGOOGLE => dec.hlsl_semantic.to_owned(),
+            spv::Decoration::DecorationHlslSemanticGOOGLE => meta.decoration.hlsl_semantic.to_owned(),
             _ => self.empty_string.to_owned(),
         }
     }
@@ -305,52 +301,51 @@ impl ParsedIR {
             .meta
             .get_mut(&id)
             .unwrap();
-        let dec = &mut meta.decoration;
-        dec.decoration_flags.clear(decoration as u32);
+        meta.decoration.decoration_flags.clear(decoration as u32);
 
         match decoration {
-            spv::Decoration::DecorationBuiltIn=> {
-                dec.builtin = false;
+            spv::Decoration::DecorationBuiltIn => {
+                meta.decoration.builtin = false;
             }
-            spv::Decoration::DecorationLocation=> {
-                dec.location = 0;
+            spv::Decoration::DecorationLocation => {
+                meta.decoration.location = 0;
             }
-            spv::Decoration::DecorationComponent=> {
-                dec.component = 0;
+            spv::Decoration::DecorationComponent => {
+                meta.decoration.component = 0;
             }
-            spv::Decoration::DecorationOffset=> {
-                dec.offset = 0;
+            spv::Decoration::DecorationOffset => {
+                meta.decoration.offset = 0;
             }
-            spv::Decoration::DecorationBinding=> {
-                dec.binding = 0;
+            spv::Decoration::DecorationBinding => {
+                meta.decoration.binding = 0;
             }
-            spv::Decoration::DecorationDescriptorSet=> {
-                dec.set = 0;
+            spv::Decoration::DecorationDescriptorSet => {
+                meta.decoration.set = 0;
             }
-            spv::Decoration::DecorationInputAttachmentIndex=> {
-                dec.input_attachment = 0;
+            spv::Decoration::DecorationInputAttachmentIndex => {
+                meta.decoration.input_attachment = 0;
             }
-            spv::Decoration::DecorationSpecId=> {
-                dec.spec_id = 0;
+            spv::Decoration::DecorationSpecId => {
+                meta.decoration.spec_id = 0;
             }
-            spv::Decoration::DecorationHlslSemanticGOOGLE=> {
-                dec.hlsl_semantic.clear();
+            spv::Decoration::DecorationHlslSemanticGOOGLE => {
+                meta.decoration.hlsl_semantic.clear();
             }
-            spv::Decoration::DecorationFPRoundingMode=> {
-                dec.fp_rounding_mode = spv::FPRoundingMode::FPRoundingModeMax;
+            spv::Decoration::DecorationFPRoundingMode => {
+                meta.decoration.fp_rounding_mode = spv::FPRoundingMode::FPRoundingModeMax;
             }
-            spv::Decoration::DecorationHlslCounterBufferGOOGLE=> {
+            spv::Decoration::DecorationHlslCounterBufferGOOGLE => {
                 let counter = meta.hlsl_magic_counter_buffer;
                 if counter != 0 {
+                    meta.hlsl_magic_counter_buffer = 0;
                     self
                         .meta
                         .get_mut(&counter)
                         .unwrap()
                         .hlsl_is_magic_counter_buffer = false;
-                    meta.hlsl_magic_counter_buffer = 0;
                 }
             }
-            _ => (),
+            _  => (),
         }
     }
 
@@ -370,7 +365,7 @@ impl ParsedIR {
             ),
             Decoration::default(),
         );
-        let mut _str = &meta.members[index as usize].alias;
+        let _str = &mut meta.members[index as usize].alias;
         _str.clear();
         if name.is_empty() {
             return;
@@ -425,29 +420,29 @@ impl ParsedIR {
         dec.decoration_flags.set(decoration as u32);
 
         match decoration {
-            spv::Decoration::DecorationBuiltIn=> {
+            spv::Decoration::DecorationBuiltIn => {
                 dec.builtin = true;
                 dec.builtin_type = FromPrimitive::from_u32(argument).unwrap();
             }
-            spv::Decoration::DecorationLocation=> {
+            spv::Decoration::DecorationLocation => {
                 dec.location = argument;
             }
-            spv::Decoration::DecorationComponent=> {
+            spv::Decoration::DecorationComponent => {
                 dec.component = argument;
             }
-            spv::Decoration::DecorationBinding=> {
+            spv::Decoration::DecorationBinding => {
                 dec.binding = argument;
             }
-            spv::Decoration::DecorationOffset=> {
+            spv::Decoration::DecorationOffset => {
                 dec.offset = argument;
             }
-            spv::Decoration::DecorationSpecId=> {
+            spv::Decoration::DecorationSpecId => {
                 dec.spec_id = argument;
             }
-            spv::Decoration::DecorationMatrixStride=> {
+            spv::Decoration::DecorationMatrixStride => {
                 dec.matrix_stride = argument;
             }
-            spv::Decoration::DecorationIndex=> {
+            spv::Decoration::DecorationIndex => {
                 dec.index = argument;
             }
             _ => ()
@@ -476,11 +471,8 @@ impl ParsedIR {
         let dec = &mut meta.members[index as usize];
         dec.decoration_flags.set(decoration as u32);
 
-        match decoration {
-            spv::Decoration::DecorationHlslSemanticGOOGLE=> {
+        if let spv::Decoration::DecorationHlslSemanticGOOGLE = decoration {
                 dec.hlsl_semantic = argument;
-            }
-            _ => (),
         }
     }
 
@@ -563,7 +555,37 @@ impl ParsedIR {
             return &meta.members[index as usize]
                 .decoration_flags;
         }
-        return &self.cleared_bitset;
+        &self.cleared_bitset
+    }
+
+    fn maybe_get_member_decoration_bitset(
+        &self,
+        id: u32,
+        index: u32,
+    ) -> Option<&Bitset> {
+        if let Some(meta) = self.find_meta(id) {
+            if index >= meta.members.len() as u32 {
+                return None;
+            }
+            return Some(&meta.members[index as usize]
+                .decoration_flags);
+        }
+        None
+    }
+
+    fn set_member_decoration_bitset(
+        &mut self,
+        id: u32,
+        index: u32,
+        new_flags: Bitset,
+    ) {
+        if let Some(meta) = self.find_meta_mut(id) {
+            if index >= meta.members.len() as u32 {
+                return;
+            }
+            meta.members[index as usize]
+                .decoration_flags = new_flags;
+        }
     }
 
     fn unset_member_decoration(
@@ -611,22 +633,22 @@ impl ParsedIR {
     // Recursively marks any constants referenced by the specified constant instruction as being used
     // as an array length. The id must be a constant instruction (SPIRConstant or SPIRConstantOp).
     pub fn mark_used_as_array_length(&mut self, id: u32) {
-        let variant = &mut self.ids[id as usize];
-        match variant.get_type() {
+        let _type = self.ids[id as usize].get().get_type();
+        match _type {
             Types::TypeConstant => {
-                match variant.holder.unwrap() {
-                    VariantHolder::SPIRConstant(mut value) => {
+                match self.ids[id as usize].get_mut() {
+                    VariantHolder::SPIRConstant(value) => {
                         value.is_used_as_array_length = true;
                     }
                     _ => panic!("Bad cast"),
                 }  
             }
             Types::TypeConstantOp => {
-                let cop = match variant.holder.unwrap() {
+                let cop = match self.ids[id as usize].get() {
                     VariantHolder::SPIRConstantOp(value) => value,
                     _ => panic!("Bad cast"),
                 };
-                for arg_id in cop.arguments {
+                for arg_id in cop.arguments.to_vec() {
                     self.mark_used_as_array_length(arg_id);
                 }
             }
@@ -646,13 +668,13 @@ impl ParsedIR {
             .resize(new_bound as usize, BlockMetaFlags::default());
         curr_bound as u32
     }
-    fn get_buffer_block_flags(&self, var: SPIRVariable) -> Bitset {
-        let _type = match self.ids[var.basetype as usize].holder.unwrap() {
+    fn get_buffer_block_flags(&mut self, var: SPIRVariable) -> Bitset {
+        let _type = match self.ids[var.basetype as usize].get() {
             VariantHolder::SPIRType(_type) => _type,
             _ => panic!("Bad cast"),
         };
         
-        assert!(_type.basetype as u32 == BaseType::Struct as u32);
+        assert_eq!(_type.basetype.clone() as u32, BaseType::Struct as u32);
 
         // Some flags like non-writable, non-readable are actually found
         // as member decorations. If all members have a decoration set, propagate
@@ -666,20 +688,24 @@ impl ParsedIR {
             return base_flags;
         }
 
+        let member_types_len = _type.member_types.len();
+        let id = _type.get_self();
+
         let mut all_member_flags = self.get_member_decoration_bitset(
-            _type.get_self(),
+            id,
             0,
-        );
-        for i in 1.._type.member_types.len() as u32 {
-            all_member_flags.merge_and(
-                self.get_member_decoration_bitset(
-                    _type.get_self(),
-                    i,
-                )
-            )
+        ).clone();
+
+        for index in 1..member_types_len as u32 {
+            let other = self
+                .get_member_decoration_bitset(id, index);
+            all_member_flags.merge_and(other);
         }
 
-        base_flags.merge_or(all_member_flags);
+        base_flags.merge_or(&all_member_flags);
+
+        self.set_member_decoration_bitset(id, 0, all_member_flags);
+
         base_flags
     }
 
@@ -734,8 +760,8 @@ impl ParsedIR {
 
         // todo: do something with it
         for id in &self.ids_for_type[T::get_type() as usize] {
-            if self.ids[id.clone() as usize].get_type() as u32 == T::get_type() as u32 {
-                op(id.clone(), self.get(id.clone() as usize));
+            if self.ids[*id as usize].get_type() as u32 == T::get_type() as u32 {
+                op(*id, self.get(*id as usize));
             }
         }
 
@@ -744,14 +770,18 @@ impl ParsedIR {
 
     fn reset_all_of_type(&mut self, _type: Types) {
         for id in &self.ids_for_type[_type as usize] {
-            if self.ids[id.clone() as usize].get_type() as u32 == _type as u32 {
-                self.ids[id.clone() as usize].reset();
+            if self.ids[*id as usize].get_type() as u32 == _type as u32 {
+                self.ids[*id as usize].reset();
             }
         }
         self.ids_for_type[_type as usize].clear();
     }
     fn find_meta(&self, id: u32) -> Option<&Meta> {
         self.meta.get(&id)
+    }
+
+    fn find_meta_mut(&mut self, id: u32) -> Option<&mut Meta> {
+        self.meta.get_mut(&id)
     }
 
     fn get_empty_string(&self) -> String {
@@ -769,16 +799,15 @@ fn ensure_valid_identifier(
 ) -> String {
     // Functions in glslangValidator are mangled with name(<mangled> stuff.
     // Normally, we would never see '(' in any legal identifiers, so just strip them out.
-    let mut _str = name[0..name.find('(').unwrap_or(name.len())]
-        .to_owned();
+    let mut _str = name[0..name.find('(').unwrap_or_else(|| name.len())]
+        .to_owned().into_bytes();
     for i in 0.._str.len() {
-        let mut c = _str.as_bytes()[i] as char;
+        let mut c = _str[i] as char;
         if member {
             // _m<num> variables are reserved by the internal implementation,
             // otherwise, make sure the name is a valid identifier.
-            if i == 0 {
-                c = if c.is_alphabetic() { c } else { '_' };
-            } else if i == 2 && _str.as_bytes()[0] as char == '_' && _str.as_bytes()[1]  as char == 'm' {
+            if i == 0 ||
+                i == 2 && _str[0] as char == '_' && _str[1]  as char == 'm' {
                 c = if c.is_alphabetic() { c } else { '_' };
             } else {
                 c = if c.is_alphanumeric() { c } else { '_' };
@@ -786,13 +815,13 @@ fn ensure_valid_identifier(
         } else {
             // _<num> variables are reserved by the internal implementation,
             // otherwise, make sure the name is a valid identifier.
-            if i == 0 || (_str.as_bytes()[0] as char == '_' && i == 1) {
+            if i == 0 || (_str[0] as char == '_' && i == 1) {
                 c = if c.is_alphabetic() { c } else { '_' };
             } else {
                 c = if c.is_alphanumeric() { c } else { '_' };
             }
         }
-        _str.as_bytes()[i] = c as u8;
+        _str[i] = c as u8;
     }
-    return _str;
+    String::from_utf8(_str).unwrap()
 }

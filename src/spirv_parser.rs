@@ -73,6 +73,7 @@ impl Parser {
     fn swap_endian(v: u32) -> u32 {
         v.swap_bytes()
     }
+    #[allow(clippy::cyclomatic_complexity)]
     fn parse_instruction(&mut self, instruction: &Instruction) {
         let ops = self.stream(instruction);
         let op = FromPrimitive::from_u16(instruction.op)
@@ -126,7 +127,7 @@ impl Parser {
             OpUndef => {
                 let result_type = ops[0];
                 let id = ops[1];
-                let mut value = SPIRUndef::new(result_type);
+                let mut value = Box::new(SPIRUndef::new(result_type));
                 value.set_self(id);
 
                 self.set(id, VariantHolder::SPIRUndef(value));
@@ -156,7 +157,7 @@ impl Parser {
                     instruction.offset + 1,
                 );
                 let kind = Extension::from_str(&ext);
-                let mut value = SPIRExtension::new(kind);
+                let mut value = Box::new(SPIRExtension::new(kind));
                 value.set_self(id);
                 self.set(id, VariantHolder::SPIRExtension(value));
 
@@ -195,9 +196,9 @@ impl Parser {
                 let entry_point = self.ir.entry_points
                     .get_mut(&ops[0])
                     .unwrap();
-                let mode = FromPrimitive::from_u32(ops[1])
+                let mode: spv::ExecutionMode = FromPrimitive::from_u32(ops[1])
                     .unwrap();
-                entry_point.flags.set(mode as u32);
+                entry_point.flags.set(mode.clone() as u32);
 
                 match mode {
                     ExecutionModeInvocations => {
@@ -253,7 +254,7 @@ impl Parser {
                     .get_mut(&group_id)
                     .unwrap()
                     .decoration;
-                let flags = &decorations.decoration_flags;
+                let flags = &decorations.decoration_flags.clone();
 
                 // Copies decorations from one ID to another. Only copy decorations which are set in the group,
                 // i.e., we cannot just copy the meta structure directly.
@@ -270,17 +271,14 @@ impl Parser {
                             self.ir.get_decoration_string(group_id, decoration),
                         );
                     } else {
+                        let offset = self.ir.meta[&group_id]
+                            .decoration_word_offset[&(decoration as u32)];
                         self.ir.meta.get_mut(&target)
                             .unwrap()
                             .decoration_word_offset
                             .insert(
                                 decoration as u32,
-                                self.ir.meta.get(&group_id)
-                                    .unwrap()
-                                    .decoration_word_offset
-                                    .get(&(decoration as u32))
-                                    .unwrap()
-                                    .clone()
+                                offset,
                             );
                         self.ir.set_decoration(
                             target,
@@ -294,17 +292,16 @@ impl Parser {
 
             OpGroupMemberDecorate => {
                 let group_id = ops[0];
-                let flags = &self.ir.meta
-                    .get(&group_id)
-                    .unwrap()
-                    .decoration.decoration_flags;
+                let flags = &self.ir.meta[&group_id]
+                    .decoration.decoration_flags
+                    .clone();
 
                 // Copies decorations from one ID to another. Only copy decorations which are set in the group,
                 // i.e., we cannot just copy the meta structure directly.
                 let mut i = 1;
                 let limit = length as usize - 1;
                 while i < limit {
-                    let target = ops[i + 0];
+                    let target = ops[i];
                     let index = ops[i + 1];
                     flags.for_each_bit(|bit: u32| {
                         let decoration = FromPrimitive::from_u32(bit)
@@ -416,14 +413,14 @@ impl Parser {
 
             OpTypeVoid => {
                 let id = ops[0];
-                let mut value = SPIRType::default();
+                let mut value = Box::new(SPIRType::default());
                 value.basetype = BaseType::Void;
                 self.set(id, VariantHolder::SPIRType(value));
             }
 
             OpTypeBool => {
                 let id = ops[0];
-                let mut value = SPIRType::default();
+                let mut value = Box::new(SPIRType::default());
                 value.basetype = BaseType::Boolean;
                 value.width = 1;
                 self.set(id, VariantHolder::SPIRType(value));
@@ -433,7 +430,7 @@ impl Parser {
                 let id = ops[0];
 		        let width = ops[1];
 
-                let mut value = SPIRType::default();
+                let mut value = Box::new(SPIRType::default());
                 if width == 64 {
                     value.basetype = BaseType::Double;
                 } else if width == 32 {
@@ -451,7 +448,7 @@ impl Parser {
                 let id = ops[0];
                 let width = ops[1];
                 let signedness = ops[2] != 0;
-                let mut value = SPIRType::default();
+                let mut value = Box::new(SPIRType::default());
                 value.basetype = if signedness {
                     to_signed_basetype(width)
                  } else {
@@ -545,7 +542,7 @@ impl Parser {
             OpTypeImage => {
                 let id = ops[0];
 
-                let mut _type = SPIRType::default();
+                let mut _type = Box::new(SPIRType::default());
                 _type.basetype = BaseType::Image;
                 _type.image._type = ops[1];
                 _type.image.dim = FromPrimitive::from_u32(ops[2]).unwrap();
@@ -582,7 +579,7 @@ impl Parser {
 
             OpTypeSampler => {
                 let id = ops[0];
-                let mut _type = SPIRType::default();
+                let mut _type = Box::new(SPIRType::default());
                 _type.basetype = BaseType::Sampler;
                 self.set(id, VariantHolder::SPIRType(_type));
             }
@@ -600,11 +597,8 @@ impl Parser {
                 ptrbase.pointer_depth += 1;
                 ptrbase.storage = FromPrimitive::from_u32(ops[1]).unwrap();
 
-                match ptrbase.storage {
-                    StorageClass::StorageClassAtomicCounter => {
-                        ptrbase.basetype = BaseType::AtomicCounter;
-                    }
-                    _ => (),
+                if let StorageClass::StorageClassAtomicCounter = ptrbase.storage {
+                    ptrbase.basetype = BaseType::AtomicCounter;
                 };
 
                 ptrbase.parent_type = ops[2];
@@ -624,49 +618,53 @@ impl Parser {
         }
     }
     fn parse(&mut self) {
-        let spirv = &self.ir.spirv;
+        let (bound, len) = {
+            let spirv = &mut self.ir.spirv;
 
-        let len = spirv.len();
-        if len < 5 {
-            panic!("SPIRV file too small.");
-        }
+            let len = spirv.len();
+            if len < 5 {
+                panic!("SPIRV file too small.");
+            }
 
-        let mut s = spirv;
+            // Endian-swap if we need to.
+            if spirv[0] == spv::MAGIC_NUMBER.swap_bytes() {
+                #[allow(clippy::needless_range_loop)]
+                for i in 0..len {
+                    spirv[i] = spirv[i].swap_bytes();
+                }
+            }
 
-        // Endian-swap if we need to.
-        if s[0] == spv::MAGIC_NUMBER.swap_bytes() {
-            s = &s
-                .iter()
-                .map(|x| x.swap_bytes())
-                .collect();
-        }
+            if spirv[0] != spv::MAGIC_NUMBER
+                || !Parser::is_valid_spirv_version(spirv[1]) {
+                panic!("Invalid SPIRV format.");
+            }
 
-        if s[0] != spv::MAGIC_NUMBER
-            || !Parser::is_valid_spirv_version(s[1]) {
-            panic!("Invalid SPIRV format.");
-        }
+            let bound = spirv[3];
 
-        let bound = s[3];
+            (bound, len)
+        };
         self.ir.set_id_bounds(bound);
+
+        let spirv = &self.ir.spirv;
         let mut offset = 5;
 
         let mut instructions = vec![];
 
         while offset < len {
             let mut instr = Instruction::default();
-            instr.op = spirv[offset] as u16 & 0xffff;
-            instr.count = (spirv[offset] >> 16) as u16 & 0xffff;
+            instr.op = spirv[offset] as u16;
+            instr.count = (spirv[offset] >> 16) as u16;
 
             if instr.count == 0 {
                 panic!("SPIR-V instructions cannot consume 0 words. Invalid SPIR-V file.");
             }
 
             instr.offset = offset as u32 + 1;
-            instr.length = instr.count as u32 - 1;
+            instr.length = u32::from(instr.count) - 1;
 
             offset += instr.count as usize;
 
-            if offset > s.len() {
+            if offset > len {
                 panic!("SPIR-V instruction goes out of bounds.");
             }
 
@@ -685,7 +683,7 @@ impl Parser {
         }
     }
 
-    fn stream(&self, instr: &Instruction) -> Option<&[u32]> {
+    fn stream(&self, instr: &Instruction) -> Option<Vec<u32>> {
         // If we're not going to use any arguments, just return nullptr.
         // We want to avoid case where we return an out of range pointer
         // that trips debug assertions on some platforms.
@@ -696,14 +694,14 @@ impl Parser {
         if (instr.offset + instr.length) as usize > self.ir.spirv.len() {
             panic!("Compiler::stream() out of range.");
         }
-        Some(&self.ir.spirv[instr.offset as usize..])
+        Some(self.ir.spirv[instr.offset as usize..].to_vec())
     }
 
-    fn extract_string(spirv: &Vec<u32>, offset: u32) -> String {
+    fn extract_string(spirv: &[u32], offset: u32) -> String {
         let mut ret = String::new();
 
-        for i in (offset as usize)..spirv.len() {
-            let mut w = spirv[i];
+        for item in spirv.iter().skip(offset as usize) {
+            let mut w = *item;
 
             for _j in 0..4 {
                 w >>= 8;
@@ -723,7 +721,7 @@ impl Parser {
         &self.ir
     }
 
-    fn set(&mut self, id: u32, holder: VariantHolder) {
+    fn set(&mut self, id: u32, mut holder: VariantHolder) {
         self.ir.add_typed_id(id, holder.get_type());
         holder.set_self(id);
         self
