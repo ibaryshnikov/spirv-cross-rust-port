@@ -333,7 +333,7 @@ impl SPIRConstantOp {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum BaseType {
     Unknown,
     Void,
@@ -357,7 +357,7 @@ pub enum BaseType {
     Sampler,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct ImageType {
     pub _type: u32,
     pub dim: spv::Dim,
@@ -400,7 +400,7 @@ pub struct SPIRType {
     // Structs can be declared multiple times if they are used as part of interface blocks.
     // We want to detect this so that we only emit the struct definition once.
     // Since we cannot rely on OpName to be equal, we need to figure out aliases.
-    type_alias: u32,
+    pub type_alias: u32,
 
     // Denotes the type which this type is based on.
     // Allows the backend to traverse how a complex type is built up during access chains.
@@ -638,8 +638,8 @@ impl SPIRExpression {
 
 #[derive(Clone)]
 pub struct SPIRFunctionPrototype {
-    return_type: u32,
-    parameter_types: Vec<u32>,
+    pub return_type: u32,
+    pub parameter_types: Vec<u32>,
     _self: u32,
 }
 
@@ -658,7 +658,7 @@ impl HasType for SPIRFunctionPrototype {
 }
 
 impl SPIRFunctionPrototype {
-    fn new(return_type: u32) -> Self {
+    pub fn new(return_type: u32) -> Self {
         SPIRFunctionPrototype {
             return_type,
             parameter_types: vec![],

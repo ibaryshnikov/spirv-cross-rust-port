@@ -1,21 +1,6 @@
 use num::FromPrimitive;
 
-use crate::spirv_common::{
-    BaseType,
-    Extension,
-    IVariant,
-    Instruction,
-    SPIRBlock,
-    SPIREntryPoint,
-    SPIRExtension,
-    SPIRType,
-    SPIRFunction,
-    SPIRUndef,
-    Types,
-    VariantHolder,
-    to_signed_basetype,
-    to_unsigned_basetype,
-};
+use crate::spirv_common::{BaseType, Extension, IVariant, Instruction, SPIRBlock, SPIREntryPoint, SPIRExtension, SPIRType, SPIRFunction, SPIRUndef, Types, VariantHolder, to_signed_basetype, to_unsigned_basetype, SPIRFunctionPrototype};
 use crate::spirv_cross_parsed_ir::{
     ParsedIR,
 };
@@ -608,6 +593,66 @@ impl Parser {
             }
 
             Op::TypeStruct => {
+                let id = ops[0];
+
+                let mut _type = Box::new(SPIRType::default());
+                _type.set_self(id);
+                _type.basetype = BaseType::Struct;
+                for i in 1..length {
+                    _type.member_types.push(ops[i as usize]);
+                }
+
+                // Check if we have seen this struct type before, with just different
+                // decorations.
+                //
+                // Add workaround for issue #17 as well by looking at OpName for the struct
+                // types, which we shouldn't normally do.
+                // We should not normally have to consider type aliases like this to begin with
+                // however ... glslang issues #304, #307 cover this.
+
+                // For stripped names, never consider struct type aliasing.
+                // We risk declaring the same struct multiple times, but type-punning is not allowed
+                // so this is safe.
+                let consider_aliasing = !self.ir.get_name(_type.get_self()).is_empty();
+                if consider_aliasing {
+                    for other in &self.global_struct_cache {
+                            let get_other = || -> &SPIRType {
+                                match self.get(*other as usize) {
+                                    VariantHolder::Type(value) => value,
+                                    _ => panic!("Bad cast"),
+                                }
+                            };
+                            if self.ir.get_name(_type.get_self()) == self.ir.get_name(*other) &&
+                                self.types_are_logically_equivalent(&_type, get_other()) {
+                            _type.type_alias = *other;
+                            break;
+                            }
+                        }
+
+                    if _type.type_alias == 0 {
+                        self.global_struct_cache.push(id);
+                    }
+                }
+            }
+
+            Op::TypeFunction => {
+                let id = ops[0];
+                let ret = ops[1];
+
+                let mut func = Box::new(
+                    SPIRFunctionPrototype::new(ret),
+                );
+
+                for i in 2..length {
+                    func.parameter_types.push(ops[i as usize]);
+                }
+
+                self.set(id, VariantHolder::FunctionPrototype(func));
+            }
+
+            // Variable declaration
+            // All variables are essentially pointers with a storage qualifier.
+            Op::Variable => {
                 // ...
             }
 
@@ -740,5 +785,62 @@ impl Parser {
         } else {
             None
         }
+    }
+
+    fn types_are_logically_equivalent(
+        &self,
+        a: &SPIRType,
+        b: &SPIRType,
+    ) -> bool {
+        if a.basetype != b.basetype {
+            return false;
+        }
+        if a.width != b.width {
+            return false;
+        }
+        if a.vecsize != b.vecsize {
+            return false;
+        }
+        if a.columns != b.columns {
+            return false;
+        }
+        if a.array.as_slice() != b.array.as_slice() {
+            return false;
+        }
+
+        match a.basetype {
+            BaseType::Image => {
+                if a.image != b.image {
+                    return false;
+                }
+            }
+            BaseType::SampledImage => {
+                if a.image != b.image {
+                    return false;
+                }
+            }
+            _ => (),
+        }
+
+        if a.member_types.len() != b.member_types.len() {
+            return false;
+        }
+
+        let get_type = |id: u32| -> &SPIRType {
+            match self.get(id as usize) {
+                VariantHolder::Type(value) => value,
+                _ => panic!("Bad cast"),
+            }
+        };
+
+        for i in 0..a.member_types.len() {
+            let type_a = get_type(a.member_types[i]);
+            let type_b = get_type(b.member_types[i]);
+            if !self.types_are_logically_equivalent(type_a, type_b) {
+                return false;
+            }
+        }
+
+        true
     }
 }

@@ -136,7 +136,7 @@ pub enum StorageClass {
     Max = 0x7fff_ffff,
 }
 
-#[derive(Clone, FromPrimitive)]
+#[derive(Clone, PartialEq, Eq, FromPrimitive)]
 pub enum Dim {
     Dim1D = 0,
     Dim2D = 1,
@@ -169,7 +169,7 @@ pub enum SamplerFilterMode {
     Max = 0x7fff_ffff,
 }
 
-#[derive(Clone, FromPrimitive)]
+#[derive(Clone, PartialEq, Eq, FromPrimitive)]
 pub enum ImageFormat {
     Unknown = 0,
     Rgba32f = 1,
@@ -322,7 +322,7 @@ pub enum LinkageType {
     Max = 0x7fff_ffff,
 }
 
-#[derive(Clone, FromPrimitive)]
+#[derive(Clone, PartialEq, Eq, FromPrimitive)]
 pub enum AccessQualifier {
     ReadOnly = 0,
     WriteOnly = 1,

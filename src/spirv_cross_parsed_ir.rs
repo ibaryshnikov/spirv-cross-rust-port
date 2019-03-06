@@ -128,7 +128,7 @@ impl ParsedIR {
             .alias = ensure_valid_identifier(name, false);
     }
 
-    fn get_name(&self, id: u32) -> String {
+    pub fn get_name(&self, id: u32) -> String {
         if let Some(m) = self.find_meta(id) {
             m.decoration.alias.to_owned()
         } else {
