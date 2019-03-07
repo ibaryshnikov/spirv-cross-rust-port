@@ -28,7 +28,7 @@ const GLSL_STD_450_VERSION: i32 = 100;
 const GLSL_STD_450_REVISION: i32 = 3;
 
 enum GLSLstd450 {
-    Bad = 0,              // Don't use
+    Bad = 0, // Don't use
 
     Round = 1,
     RoundEven = 2,
@@ -68,8 +68,8 @@ enum GLSLstd450 {
     Determinant = 33,
     MatrixInverse = 34,
 
-    Modf = 35,            // second operand needs an OpVariable to write to
-    ModfStruct = 36,      // no OpVariable operand
+    Modf = 35,       // second operand needs an OpVariable to write to
+    ModfStruct = 36, // no OpVariable operand
     FMin = 37,
     UMin = 38,
     SMin = 39,
@@ -80,13 +80,13 @@ enum GLSLstd450 {
     UClamp = 44,
     SClamp = 45,
     FMix = 46,
-    IMix = 47,            // Reserved
+    IMix = 47, // Reserved
     Step = 48,
     SmoothStep = 49,
 
     Fma = 50,
-    Frexp = 51,            // second operand needs an OpVariable to write to
-    FrexpStruct = 52,      // no OpVariable operand
+    Frexp = 51,       // second operand needs an OpVariable to write to
+    FrexpStruct = 52, // no OpVariable operand
     Ldexp = 53,
 
     PackSnorm4x8 = 54,
@@ -122,5 +122,5 @@ enum GLSLstd450 {
     NMax = 80,
     NClamp = 81,
 
-    Count
+    Count,
 }

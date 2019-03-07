@@ -1,18 +1,14 @@
 use num::FromPrimitive;
 
-use crate::spirv_common::{BaseType, Extension, IVariant, Instruction, SPIRBlock, SPIREntryPoint, SPIRExtension, SPIRType, SPIRFunction, SPIRUndef, Types, VariantHolder, to_signed_basetype, to_unsigned_basetype, SPIRFunctionPrototype};
-use crate::spirv_cross_parsed_ir::{
-    ParsedIR,
-};
 use crate::spirv::{
-    self as spv,
-    AccessQualifier,
-    Capability,
-    ExecutionMode,
-    Op,
-    SourceLanguage,
-    StorageClass,
+    self as spv, AccessQualifier, Capability, ExecutionMode, Op, SourceLanguage, StorageClass,
 };
+use crate::spirv_common::{
+    to_signed_basetype, to_unsigned_basetype, BaseType, Extension, IVariant, Instruction,
+    SPIRBlock, SPIREntryPoint, SPIRExtension, SPIRFunction, SPIRFunctionPrototype, SPIRType,
+    SPIRUndef, Types, VariantHolder,
+};
+use crate::spirv_cross_parsed_ir::ParsedIR;
 
 struct Parser {
     ir: ParsedIR,
@@ -61,8 +57,7 @@ impl Parser {
     #[allow(clippy::cyclomatic_complexity)]
     fn parse_instruction(&mut self, instruction: &Instruction) {
         let ops = self.stream(instruction);
-        let op = FromPrimitive::from_u16(instruction.op)
-            .unwrap();
+        let op = FromPrimitive::from_u16(instruction.op).unwrap();
         let length = instruction.length;
 
         // TODO: choose the behavior for None
@@ -79,8 +74,7 @@ impl Parser {
             Op::ModuleProcessed => (),
 
             Op::Source => {
-                let lang = FromPrimitive::from_u32(ops[0])
-                    .unwrap();
+                let lang = FromPrimitive::from_u32(ops[0]).unwrap();
 
                 match lang {
                     SourceLanguage::ESSL => {
@@ -106,7 +100,6 @@ impl Parser {
                         self.ir.source.known = false;
                     }
                 }
-
             }
 
             Op::Undef => {
@@ -119,8 +112,7 @@ impl Parser {
             }
 
             Op::Capability => {
-                let cap = FromPrimitive::from_u32(ops[0])
-                    .unwrap();
+                let cap = FromPrimitive::from_u32(ops[0]).unwrap();
                 if let Capability::Kernel = cap {
                     panic!("Kernel capability not supported.");
                 }
@@ -128,19 +120,13 @@ impl Parser {
             }
 
             Op::Extension => {
-                let ext = Self::extract_string(
-                    &self.ir.spirv,
-                    instruction.offset,
-                );
+                let ext = Self::extract_string(&self.ir.spirv, instruction.offset);
                 self.ir.declared_extensions.push(ext);
             }
 
             Op::ExtInstImport => {
                 let id = ops[0];
-                let ext = Self::extract_string(
-                    &self.ir.spirv,
-                    instruction.offset + 1,
-                );
+                let ext = Self::extract_string(&self.ir.spirv, instruction.offset + 1);
                 let kind = Extension::from_str(&ext);
                 let mut value = Box::new(SPIRExtension::new(kind));
                 value.set_self(id);
@@ -150,8 +136,7 @@ impl Parser {
             }
 
             Op::EntryPoint => {
-                let model = FromPrimitive::from_u32(ops[0])
-                    .unwrap();
+                let model = FromPrimitive::from_u32(ops[0]).unwrap();
 
                 let mut entry_point = SPIREntryPoint::new(
                     ops[1],
@@ -162,9 +147,10 @@ impl Parser {
                 // Strings need nul-terminator and consume the whole word.
                 let strlen_words = (entry_point.name.len() + 1 + 3) >> 2;
                 for _i in 0..ops[strlen_words + 2] {
-                    entry_point.interface_variables.push(ops[instruction.length as usize]);
+                    entry_point
+                        .interface_variables
+                        .push(ops[instruction.length as usize]);
                 }
-
 
                 // Set the name of the entry point in case OpName is not provided later.
                 self.ir.set_name(ops[1], entry_point.name.clone());
@@ -178,11 +164,8 @@ impl Parser {
             }
 
             Op::ExecutionMode => {
-                let entry_point = self.ir.entry_points
-                    .get_mut(&ops[0])
-                    .unwrap();
-                let mode: ExecutionMode = FromPrimitive::from_u32(ops[1])
-                    .unwrap();
+                let entry_point = self.ir.entry_points.get_mut(&ops[0]).unwrap();
+                let mode: ExecutionMode = FromPrimitive::from_u32(ops[1]).unwrap();
                 entry_point.flags.set(mode.clone() as u32);
 
                 match mode {
@@ -208,10 +191,7 @@ impl Parser {
                 let id = ops[0];
                 self.ir.set_name(
                     id,
-                    Self::extract_string(
-                        &self.ir.spirv,
-                        instruction.offset + 1,
-                    ),
+                    Self::extract_string(&self.ir.spirv, instruction.offset + 1),
                 );
             }
 
@@ -221,10 +201,7 @@ impl Parser {
                 self.ir.set_member_name(
                     id,
                     member,
-                    Self::extract_string(
-                        &self.ir.spirv,
-                        instruction.offset + 2,
-                    ),
+                    Self::extract_string(&self.ir.spirv, instruction.offset + 2),
                 )
             }
 
@@ -235,10 +212,7 @@ impl Parser {
 
             Op::GroupDecorate => {
                 let group_id = ops[0];
-                let decorations = &self.ir.meta
-                    .get_mut(&group_id)
-                    .unwrap()
-                    .decoration;
+                let decorations = &self.ir.meta.get_mut(&group_id).unwrap().decoration;
                 let flags = &decorations.decoration_flags.clone();
 
                 // Copies decorations from one ID to another. Only copy decorations which are set in the group,
@@ -246,40 +220,36 @@ impl Parser {
                 for i in 1..length {
                     let target = ops[i as usize];
                     flags.for_each_bit(|bit: u32| {
-                    let decoration = FromPrimitive::from_u32(bit)
-                        .unwrap();
+                        let decoration = FromPrimitive::from_u32(bit).unwrap();
 
-                    if Self::decoration_is_string(decoration) {
-                        self.ir.set_decoration_string(
-                            target,
-                            decoration,
-                            self.ir.get_decoration_string(group_id, decoration),
-                        );
-                    } else {
-                        let offset = self.ir.meta[&group_id]
-                            .decoration_word_offset[&(decoration as u32)];
-                        self.ir.meta.get_mut(&target)
-                            .unwrap()
-                            .decoration_word_offset
-                            .insert(
-                                decoration as u32,
-                                offset,
+                        if Self::decoration_is_string(decoration) {
+                            self.ir.set_decoration_string(
+                                target,
+                                decoration,
+                                self.ir.get_decoration_string(group_id, decoration),
                             );
-                        self.ir.set_decoration(
-                            target,
-                            decoration,
-                            self.ir.get_decoration(group_id, decoration),
-                        );
-                    }
-                });
+                        } else {
+                            let offset = self.ir.meta[&group_id].decoration_word_offset
+                                [&(decoration as u32)];
+                            self.ir
+                                .meta
+                                .get_mut(&target)
+                                .unwrap()
+                                .decoration_word_offset
+                                .insert(decoration as u32, offset);
+                            self.ir.set_decoration(
+                                target,
+                                decoration,
+                                self.ir.get_decoration(group_id, decoration),
+                            );
+                        }
+                    });
                 }
             }
 
             Op::GroupMemberDecorate => {
                 let group_id = ops[0];
-                let flags = &self.ir.meta[&group_id]
-                    .decoration.decoration_flags
-                    .clone();
+                let flags = &self.ir.meta[&group_id].decoration.decoration_flags.clone();
 
                 // Copies decorations from one ID to another. Only copy decorations which are set in the group,
                 // i.e., we cannot just copy the meta structure directly.
@@ -289,8 +259,7 @@ impl Parser {
                     let target = ops[i];
                     let index = ops[i + 1];
                     flags.for_each_bit(|bit: u32| {
-                        let decoration = FromPrimitive::from_u32(bit)
-                            .unwrap();
+                        let decoration = FromPrimitive::from_u32(bit).unwrap();
                         if Self::decoration_is_string(decoration) {
                             self.ir.set_member_decoration_string(
                                 target,
@@ -303,7 +272,8 @@ impl Parser {
                                 target,
                                 index,
                                 decoration,
-                                self.ir.get_decoration(group_id, decoration));
+                                self.ir.get_decoration(group_id, decoration),
+                            );
                         }
                     });
                     i += 2;
@@ -315,15 +285,14 @@ impl Parser {
                 // so merge decorate and decorate-id here.
                 let id = ops[0];
 
-                let decoration: spv::Decoration = FromPrimitive::from_u32(ops[1])
-                    .unwrap();
+                let decoration: spv::Decoration = FromPrimitive::from_u32(ops[1]).unwrap();
                 if length >= 3 {
-//                    self.ir.meta
-//                        .get_mut(&id)
-//                        .unwrap()
-//                        .decoration_word_offset
-//                        // TODO: fix data() thing
-//                        .insert(decoration as u32, (&ops[2] - self.ir.spirv.data()) as u32);
+                    //                    self.ir.meta
+                    //                        .get_mut(&id)
+                    //                        .unwrap()
+                    //                        .decoration_word_offset
+                    //                        // TODO: fix data() thing
+                    //                        .insert(decoration as u32, (&ops[2] - self.ir.spirv.data()) as u32);
                     self.ir.set_decoration(id, decoration, ops[2]);
                 } else {
                     self.ir.set_decoration(id, decoration, None);
@@ -335,16 +304,15 @@ impl Parser {
                 // so merge decorate and decorate-id here.
                 let id = ops[0];
 
-                let decoration: spv::Decoration = FromPrimitive::from_u32(ops[1])
-                    .unwrap();
+                let decoration: spv::Decoration = FromPrimitive::from_u32(ops[1]).unwrap();
                 if length >= 3 {
-//                    self.ir.meta
-//                        .get_mut(&id)
-//                        .unwrap()
-//                        .decoration_word_offset
-//                        // TODO: fix data thing
-//                        .insert(decoration as u32, (&ops[2] - self.ir.spirv.data()) as u32);
-//                    self.ir.set_decoration(id, decoration, ops[2]);
+                    //                    self.ir.meta
+                    //                        .get_mut(&id)
+                    //                        .unwrap()
+                    //                        .decoration_word_offset
+                    //                        // TODO: fix data thing
+                    //                        .insert(decoration as u32, (&ops[2] - self.ir.spirv.data()) as u32);
+                    //                    self.ir.set_decoration(id, decoration, ops[2]);
                 } else {
                     self.ir.set_decoration(id, decoration, None);
                 }
@@ -352,8 +320,7 @@ impl Parser {
 
             Op::DecorateString => {
                 let id = ops[0];
-                let decoration = FromPrimitive::from_u32(ops[1])
-                    .unwrap();
+                let decoration = FromPrimitive::from_u32(ops[1]).unwrap();
                 self.ir.set_decoration_string(
                     id,
                     decoration,
@@ -364,30 +331,19 @@ impl Parser {
             Op::MemberDecorate => {
                 let id = ops[0];
                 let member = ops[1];
-                let decoration = FromPrimitive::from_u32(ops[2])
-                    .unwrap();
+                let decoration = FromPrimitive::from_u32(ops[2]).unwrap();
                 if length >= 4 {
-                    self.ir.set_member_decoration(
-                        id,
-                        member,
-                        decoration,
-                        ops[3],
-                    );
+                    self.ir
+                        .set_member_decoration(id, member, decoration, ops[3]);
                 } else {
-                    self.ir.set_member_decoration(
-                        id,
-                        member,
-                        decoration,
-                        None,
-                    );
+                    self.ir.set_member_decoration(id, member, decoration, None);
                 }
             }
 
             Op::MemberDecorateString => {
                 let id = ops[0];
                 let member = ops[1];
-                let decoration = FromPrimitive::from_u32(ops[2])
-                    .unwrap();
+                let decoration = FromPrimitive::from_u32(ops[2]).unwrap();
                 self.ir.set_member_decoration_string(
                     id,
                     member,
@@ -413,7 +369,7 @@ impl Parser {
 
             Op::TypeFloat => {
                 let id = ops[0];
-		        let width = ops[1];
+                let width = ops[1];
 
                 let mut value = Box::new(SPIRType::default());
                 if width == 64 {
@@ -426,7 +382,7 @@ impl Parser {
                     panic!("Unrecognized bit-width of floating point type.");
                 }
                 value.width = width;
-		        self.set(id, VariantHolder::Type(value));
+                self.set(id, VariantHolder::Type(value));
             }
 
             Op::TypeInt => {
@@ -436,16 +392,16 @@ impl Parser {
                 let mut value = Box::new(SPIRType::default());
                 value.basetype = if signedness {
                     to_signed_basetype(width)
-                 } else {
-                     to_unsigned_basetype(width)
-                 };
+                } else {
+                    to_unsigned_basetype(width)
+                };
                 value.width = width;
                 self.set(id, VariantHolder::Type(value));
             }
 
             // Build composite types by "inheriting".
-	        // NOTE: The self member is also copied! For pointers and array modifiers this is a good thing
-	        // since we can refer to decorations on pointee classes which is needed for UBO/SSBO, I/O blocks in geometry/tess etc.
+            // NOTE: The self member is also copied! For pointers and array modifiers this is a good thing
+            // since we can refer to decorations on pointee classes which is needed for UBO/SSBO, I/O blocks in geometry/tess etc.
             Op::TypeVector => {
                 let id = ops[0];
                 let vecsize = ops[2];
@@ -501,7 +457,11 @@ impl Parser {
                 let literal = c.is_some() && !c.unwrap().specialization;
 
                 arraybase.array_size_literal.push(literal);
-                arraybase.array.push(if literal { c.unwrap().scalar(None, None) } else { cid });
+                arraybase.array.push(if literal {
+                    c.unwrap().scalar(None, None)
+                } else {
+                    cid
+                });
                 // Do NOT set arraybase.self!
 
                 self.set(id, VariantHolder::Type(arraybase));
@@ -616,18 +576,19 @@ impl Parser {
                 let consider_aliasing = !self.ir.get_name(_type.get_self()).is_empty();
                 if consider_aliasing {
                     for other in &self.global_struct_cache {
-                            let get_other = || -> &SPIRType {
-                                match self.get(*other as usize) {
-                                    VariantHolder::Type(value) => value,
-                                    _ => panic!("Bad cast"),
-                                }
-                            };
-                            if self.ir.get_name(_type.get_self()) == self.ir.get_name(*other) &&
-                                self.types_are_logically_equivalent(&_type, get_other()) {
+                        let get_other = || -> &SPIRType {
+                            match self.get(*other as usize) {
+                                VariantHolder::Type(value) => value,
+                                _ => panic!("Bad cast"),
+                            }
+                        };
+                        if self.ir.get_name(_type.get_self()) == self.ir.get_name(*other)
+                            && self.types_are_logically_equivalent(&_type, get_other())
+                        {
                             _type.type_alias = *other;
                             break;
-                            }
                         }
+                    }
 
                     if _type.type_alias == 0 {
                         self.global_struct_cache.push(id);
@@ -639,9 +600,7 @@ impl Parser {
                 let id = ops[0];
                 let ret = ops[1];
 
-                let mut func = Box::new(
-                    SPIRFunctionPrototype::new(ret),
-                );
+                let mut func = Box::new(SPIRFunctionPrototype::new(ret));
 
                 for i in 2..length {
                     func.parameter_types.push(ops[i as usize]);
@@ -656,10 +615,7 @@ impl Parser {
                 // ...
             }
 
-            _ => {
-
-            }
-
+            _ => {}
         }
     }
     fn parse(&mut self) {
@@ -679,8 +635,7 @@ impl Parser {
                 }
             }
 
-            if spirv[0] != spv::MAGIC_NUMBER
-                || !Parser::is_valid_spirv_version(spirv[1]) {
+            if spirv[0] != spv::MAGIC_NUMBER || !Parser::is_valid_spirv_version(spirv[1]) {
                 panic!("Invalid SPIRV format.");
             }
 
@@ -769,10 +724,7 @@ impl Parser {
     fn set(&mut self, id: u32, mut holder: VariantHolder) {
         self.ir.add_typed_id(id, holder.get_type());
         holder.set_self(id);
-        self
-            .ir
-            .ids[id as usize]
-            .set(holder);
+        self.ir.ids[id as usize].set(holder);
     }
 
     fn get(&self, id: usize) -> &VariantHolder {
@@ -787,11 +739,7 @@ impl Parser {
         }
     }
 
-    fn types_are_logically_equivalent(
-        &self,
-        a: &SPIRType,
-        b: &SPIRType,
-    ) -> bool {
+    fn types_are_logically_equivalent(&self, a: &SPIRType, b: &SPIRType) -> bool {
         if a.basetype != b.basetype {
             return false;
         }

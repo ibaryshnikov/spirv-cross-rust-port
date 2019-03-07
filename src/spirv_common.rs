@@ -1,5 +1,5 @@
-use std::collections::{HashMap, HashSet};
 use std::cmp::PartialEq;
+use std::collections::{HashMap, HashSet};
 
 use crate::spirv as spv;
 
@@ -9,20 +9,26 @@ struct CompilerError(String);
 pub struct Bitset {
     // The most common bits to set are all lower than 64,
     // so optimize for this case. Bits spilling outside 64 go into a slower data structure.
-	// In almost all cases, higher data structure will not be used.
+    // In almost all cases, higher data structure will not be used.
     lower: u64,
     higher: HashSet<u32>,
 }
 
 impl Default for Bitset {
     fn default() -> Self {
-        Bitset { lower: 0, higher: HashSet::new() }
+        Bitset {
+            lower: 0,
+            higher: HashSet::new(),
+        }
     }
 }
 
 impl Bitset {
     fn new(lower: u64) -> Self {
-        Bitset { lower, higher: HashSet::new() }
+        Bitset {
+            lower,
+            higher: HashSet::new(),
+        }
     }
 
     pub fn get(&self, bit: u32) -> bool {
@@ -106,7 +112,6 @@ impl Bitset {
     fn empty(&self) -> bool {
         self.lower == 0 && self.higher.is_empty()
     }
-
 }
 
 impl PartialEq for Bitset {
@@ -143,7 +148,12 @@ pub struct Instruction {
 
 impl Default for Instruction {
     fn default() -> Self {
-        Instruction { op: 0, count: 0, offset: 0, length: 0 }
+        Instruction {
+            op: 0,
+            count: 0,
+            offset: 0,
+            length: 0,
+        }
     }
 }
 
@@ -478,7 +488,9 @@ impl Extension {
         match value {
             "GLSL.std.450" => Extension::GLSL,
             "SPV_AMD_shader_ballot" => Extension::SPV_AMD_shader_ballot,
-            "SPV_AMD_shader_explicit_vertex_parameter" => Extension::SPV_AMD_shader_explicit_vertex_parameter,
+            "SPV_AMD_shader_explicit_vertex_parameter" => {
+                Extension::SPV_AMD_shader_explicit_vertex_parameter
+            }
             "SPV_AMD_shader_trinary_minmax" => Extension::SPV_AMD_shader_trinary_minmax,
             "SPV_AMD_gcn_shader" => Extension::SPV_AMD_gcn_shader,
             _ => Extension::Unsupported,
@@ -508,13 +520,9 @@ impl HasType for SPIRExtension {
 
 impl SPIRExtension {
     pub fn new(ext: Extension) -> Self {
-        SPIRExtension {
-            ext,
-            _self: 0,
-        }
+        SPIRExtension { ext, _self: 0 }
     }
 }
-
 
 pub struct WorkgroupSize {
     pub x: u32,
@@ -549,11 +557,7 @@ pub struct SPIREntryPoint {
 // SPIREntryPoint is not a variant since its IDs are used to decorate OpFunction,
 // so in order to avoid conflicts, we can't stick them in the ids array.
 impl SPIREntryPoint {
-    pub fn new(
-        _self: u32,
-        execution_model: spv:: ExecutionModel,
-        entry_name: String,
-    ) -> Self {
+    pub fn new(_self: u32, execution_model: spv::ExecutionModel, entry_name: String) -> Self {
         SPIREntryPoint {
             _self,
             name: entry_name.clone(),
@@ -672,12 +676,12 @@ pub enum Terminator {
     Unknown,
     Direct, // Emit next block directly without a particular condition.
 
-    Select, // Block ends with an if/else block.
+    Select,      // Block ends with an if/else block.
     MultiSelect, // Block ends with switch statement.
 
-    Return, // Block ends with return.
+    Return,      // Block ends with return.
     Unreachable, // Noop
-    Kill, // Discard
+    Kill,        // Discard
 }
 
 #[derive(Clone)]
@@ -723,8 +727,8 @@ enum ContinueBlockType {
 
 #[derive(Clone, Default)]
 struct Phi {
-    local_variable: u32, // flush local variable ...
-    parent: u32, // If we're in from_block and want to branch into this block ...
+    local_variable: u32,    // flush local variable ...
+    parent: u32,            // If we're in from_block and want to branch into this block ...
     function_variable: u32, // to this function-global "phi" variable first.
 }
 
@@ -882,7 +886,6 @@ pub struct SPIRFunction {
 
     // Can be used by backends to add magic arguments.
     // Currently used by combined image/sampler implementation.
-
     shadow_arguments: Vec<Parameter>,
     local_variables: Vec<u32>,
     pub entry_block: u32,
@@ -1089,15 +1092,11 @@ impl SPIRVariable {
     fn new(
         basetype: u32,
         storage: spv::StorageClass,
-        initializer: impl Into<Option<u32>>, // 0
+        initializer: impl Into<Option<u32>>,  // 0
         basevariable: impl Into<Option<u32>>, // 0
     ) -> Self {
-        let initializer = initializer
-            .into()
-            .unwrap_or(0);
-        let basevariable = basevariable
-            .into()
-            .unwrap_or(0);
+        let initializer = initializer.into().unwrap_or(0);
+        let basevariable = basevariable.into().unwrap_or(0);
         SPIRVariable {
             basetype,
             storage,
@@ -1374,8 +1373,7 @@ impl SPIRConstant {
                 e += 1;
                 m &= !0x400;
             }
-        }
-        else if e == 31 {
+        } else if e == 31 {
             if m == 0 {
                 let u: u32 = ((s as u32) << 31) | 0x7f80_0000u32;
                 return f32::from_bits(u);
@@ -1399,10 +1397,12 @@ impl SPIRConstant {
         self.m.id[col]
     }
 
-    fn get_constant(&self, col: impl Into<Option<usize>>, row: impl Into<Option<usize>>) -> Constant {
-        self.m
-            .c[col.into().unwrap_or(0)]
-            .r[row.into().unwrap_or(0)]
+    fn get_constant(
+        &self,
+        col: impl Into<Option<usize>>,
+        row: impl Into<Option<usize>>,
+    ) -> Constant {
+        self.m.c[col.into().unwrap_or(0)].r[row.into().unwrap_or(0)]
     }
 
     pub fn scalar(&self, col: impl Into<Option<usize>>, row: impl Into<Option<usize>>) -> u32 {
@@ -1500,7 +1500,8 @@ impl Variant {
     pub fn set(&mut self, val: VariantHolder) {
         if !self.allow_type_rewrite
             && self._type as u32 != Types::None as u32
-            && self._type as u32 != val.get_type() as u32 {
+            && self._type as u32 != val.get_type() as u32
+        {
             panic!("Overwriting a variant with new type.");
         }
         self._type = val.get_type();

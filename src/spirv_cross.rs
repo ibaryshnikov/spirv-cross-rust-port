@@ -1,10 +1,6 @@
-use crate::spirv_common::{
-    VariantHolder,
-};
+use crate::spirv_common::VariantHolder;
 
-use crate::spirv_cross_parsed_ir::{
-    ParsedIR,
-};
+use crate::spirv_cross_parsed_ir::ParsedIR;
 
 pub struct Compiler {
     ir: ParsedIR,

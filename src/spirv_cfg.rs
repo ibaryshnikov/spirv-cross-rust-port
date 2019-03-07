@@ -16,16 +16,9 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::spirv_common::{
-    Merge,
-    Terminator,
-    SPIRFunction,
-    VariantHolder,
-};
+use crate::spirv_common::{Merge, SPIRFunction, Terminator, VariantHolder};
 
-use crate::spirv_cross::{
-    Compiler,
-};
+use crate::spirv_cross::Compiler;
 
 struct VisitOrder {
     v: i32,
@@ -42,7 +35,6 @@ impl Default for VisitOrder {
         VisitOrder { v: -1 }
     }
 }
-
 
 struct Cfg<'a> {
     compiler: &'a Compiler,
@@ -110,14 +102,16 @@ impl<'a> Cfg<'a> {
     fn build_immediate_dominators(&mut self) {
         // Traverse the post-order in reverse and build up the immediate dominator tree.
         self.immediate_dominators.clear();
-        self.immediate_dominators.insert(self.func.entry_block, self.func.entry_block);
+        self.immediate_dominators
+            .insert(self.func.entry_block, self.func.entry_block);
 
         for block in self.post_order.iter().rev() {
             if let Some(pred) = &self.preceding_edges.get(block) {
                 for edge in *pred {
                     if self.immediate_dominators.contains_key(block) {
                         assert!(self.immediate_dominators.contains_key(edge));
-                        self.immediate_dominators.insert(*block, self.find_common_dominator(*block, *edge));
+                        self.immediate_dominators
+                            .insert(*block, self.find_common_dominator(*block, *edge));
                     } else {
                         self.immediate_dominators.insert(*block, *edge);
                     }
@@ -160,7 +154,7 @@ impl<'a> Cfg<'a> {
                 if self.post_order_visit(block.next_block) {
                     self.add_branch(block_id, block.next_block);
                 }
-            },
+            }
             Terminator::Select => {
                 if self.post_order_visit(block.true_block) {
                     self.add_branch(block_id, block.true_block);
@@ -168,7 +162,7 @@ impl<'a> Cfg<'a> {
                 if self.post_order_visit(block.false_block) {
                     self.add_branch(block_id, block.false_block);
                 }
-            },
+            }
             Terminator::MultiSelect => {
                 for target in &block.cases {
                     if self.post_order_visit(target.block) {
@@ -178,7 +172,7 @@ impl<'a> Cfg<'a> {
                 if block.default_block != 0 && self.post_order_visit(block.default_block) {
                     self.add_branch(block_id, block.default_block);
                 }
-            },
+            }
             _ => (),
         }
 
@@ -235,12 +229,7 @@ impl<'a> Cfg<'a> {
         &self.empty_vector
     }
 
-    fn walk_from(
-        &self,
-        seen_blocks: &mut HashSet<u32>,
-        block: u32,
-        op: impl Fn(u32) -> (),
-    ) {
+    fn walk_from(&self, seen_blocks: &mut HashSet<u32>, block: u32, op: impl Fn(u32) -> ()) {
         if seen_blocks.contains(&block) {
             return;
         }
@@ -252,22 +241,22 @@ impl<'a> Cfg<'a> {
     }
 
     // private
-//    fn add_branch(&self, from: u32, to: u32) {
-//
-//    }
-//    fn build_post_order_visit_order(&self) {
-//
-//    }
-//    fn build_immediate_dominators(&self) {
-//
-//    }
-//    fn post_order_visit(&self, block: u32) -> bool {
-//
-//    }
+    //    fn add_branch(&self, from: u32, to: u32) {
+    //
+    //    }
+    //    fn build_post_order_visit_order(&self) {
+    //
+    //    }
+    //    fn build_immediate_dominators(&self) {
+    //
+    //    }
+    //    fn post_order_visit(&self, block: u32) -> bool {
+    //
+    //    }
 
-//    fn is_back_edge(&self, to: u32) -> bool {
-//
-//    }
+    //    fn is_back_edge(&self, to: u32) -> bool {
+    //
+    //    }
 }
 
 struct DominatorBuilder<'a> {
@@ -323,7 +312,7 @@ impl<'a> DominatorBuilder<'a> {
                 if self.cfg.get_visit_order(block.next_block) > post_order {
                     back_edge_dominator = true;
                 }
-            },
+            }
             Terminator::Select => {
                 if self.cfg.get_visit_order(block.true_block) > post_order {
                     back_edge_dominator = true;
@@ -331,17 +320,19 @@ impl<'a> DominatorBuilder<'a> {
                 if self.cfg.get_visit_order(block.false_block) > post_order {
                     back_edge_dominator = true;
                 }
-            },
+            }
             Terminator::MultiSelect => {
                 for target in &block.cases {
                     if self.cfg.get_visit_order(target.block) > post_order {
                         back_edge_dominator = true;
                     }
                 }
-                if block.default_block != 0 && self.cfg.get_visit_order(block.default_block) > post_order {
+                if block.default_block != 0
+                    && self.cfg.get_visit_order(block.default_block) > post_order
+                {
                     back_edge_dominator = true;
                 }
-            },
+            }
             _ => (),
         }
 

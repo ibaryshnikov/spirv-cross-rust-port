@@ -3,24 +3,15 @@ use std::collections::HashMap;
 
 use num::FromPrimitive;
 
-use crate::spirv_common::{
-    BaseType,
-    Bitset,
-    Decoration,
-    HasType,
-    Meta,
-    SPIREntryPoint,
-    SPIRVariable,
-    Types,
-    IVariant,
-    Variant,
-    VariantHolder,
-};
 use crate::spirv as spv;
+use crate::spirv_common::{
+    BaseType, Bitset, Decoration, HasType, IVariant, Meta, SPIREntryPoint, SPIRVariable, Types,
+    Variant, VariantHolder,
+};
 
 enum BlockMetaFlagBits {
     LoopHeader = 1,            // 1
-    Continue = 1 << 1,          // 2
+    Continue = 1 << 1,         // 2
     LoopMerge = 1 << 2,        // 4
     SelectionMerge = 1 << 3,   // 8
     MultiselectMerge = 1 << 4, // 16
@@ -97,35 +88,28 @@ impl Default for ParsedIR {
 
 impl ParsedIR {
     pub fn set_id_bounds(&mut self, bounds: u32) {
-        self.ids.resize(
-            bounds as usize,
-            Variant::default(),
-        );
-        self.block_meta.resize(
-            bounds as usize,
-            BlockMetaFlags::default(),
-        );
+        self.ids.resize(bounds as usize, Variant::default());
+        self.block_meta
+            .resize(bounds as usize, BlockMetaFlags::default());
     }
 
     pub fn set_name(&mut self, id: u32, name: String) {
-        let meta = self.meta
-            .get_mut(&id)
-            .unwrap();
-        let mut _str = &mut meta
-            .decoration
-            .alias;
+        let meta = self.meta.get_mut(&id).unwrap();
+        let mut _str = &mut meta.decoration.alias;
         _str.clear();
 
         if name.is_empty() {
             return;
         }
 
-        if name.as_bytes()[0] as char == '_' && name.len() >= 2 && (name.as_bytes()[1] as char).is_digit(10) {
+        if name.as_bytes()[0] as char == '_'
+            && name.len() >= 2
+            && (name.as_bytes()[1] as char).is_digit(10)
+        {
             return;
         }
 
-        meta.decoration
-            .alias = ensure_valid_identifier(name, false);
+        meta.decoration.alias = ensure_valid_identifier(name, false);
     }
 
     pub fn get_name(&self, id: u32) -> String {
@@ -143,15 +127,11 @@ impl ParsedIR {
         argument: impl Into<Option<u32>>,
     ) {
         let argument = argument.into().unwrap_or(0);
-        let meta = self.meta
-            .get_mut(&id)
-            .unwrap();
+        let meta = self.meta.get_mut(&id).unwrap();
 
         let dec = &mut meta.decoration;
 
-        dec
-            .decoration_flags
-            .set(decoration as u32);
+        dec.decoration_flags.set(decoration as u32);
 
         match decoration {
             spv::Decoration::BuiltIn => {
@@ -195,7 +175,7 @@ impl ParsedIR {
             spv::Decoration::FPRoundingMode => {
                 dec.fp_rounding_mode = FromPrimitive::from_u32(argument).unwrap();;
             }
-            _ => ()
+            _ => (),
         }
     }
 
@@ -205,42 +185,26 @@ impl ParsedIR {
         decoration: spv::Decoration,
         argument: String,
     ) {
-        let meta = self.meta
-            .get_mut(&id)
-            .unwrap();
-        meta
-            .decoration
-            .decoration_flags.set(decoration as u32);
+        let meta = self.meta.get_mut(&id).unwrap();
+        meta.decoration.decoration_flags.set(decoration as u32);
 
         if let spv::Decoration::HlslSemantic = decoration {
-            meta
-                .decoration
-                .hlsl_semantic = argument;
+            meta.decoration.hlsl_semantic = argument;
         }
     }
 
-    fn has_decoration(
-        &self,
-        id: u32,
-        decoration: spv::Decoration,
-    ) -> bool {
-        self.get_decoration_bitset(id)
-            .get(decoration as u32)
+    fn has_decoration(&self, id: u32, decoration: spv::Decoration) -> bool {
+        self.get_decoration_bitset(id).get(decoration as u32)
     }
 
-    pub fn get_decoration(
-        &self,
-        id: u32,
-        decoration: spv::Decoration,
-    ) -> u32 {
+    pub fn get_decoration(&self, id: u32, decoration: spv::Decoration) -> u32 {
         let meta = match self.find_meta(id) {
             None => return 0,
             Some(m) => m,
         };
 
         let dec = &meta.decoration;
-        if !dec.decoration_flags
-            .get(decoration as u32) {
+        if !dec.decoration_flags.get(decoration as u32) {
             return 0;
         }
 
@@ -261,11 +225,7 @@ impl ParsedIR {
         }
     }
 
-    pub fn get_decoration_string(
-        &self,
-        id: u32,
-        decoration: spv::Decoration,
-    ) -> String {
+    pub fn get_decoration_string(&self, id: u32, decoration: spv::Decoration) -> String {
         let meta = match self.find_meta(id) {
             None => return self.empty_string.to_owned(),
             Some(m) => m,
@@ -281,10 +241,7 @@ impl ParsedIR {
         }
     }
 
-    fn get_decoration_bitset(
-        &self,
-        id: u32,
-    ) -> &Bitset {
+    fn get_decoration_bitset(&self, id: u32) -> &Bitset {
         if let Some(meta) = self.find_meta(id) {
             &meta.decoration.decoration_flags
         } else {
@@ -292,15 +249,8 @@ impl ParsedIR {
         }
     }
 
-    fn unset_decoration(
-        &mut self,
-        id: u32,
-        decoration: spv::Decoration,
-    ) {
-        let meta = self
-            .meta
-            .get_mut(&id)
-            .unwrap();
+    fn unset_decoration(&mut self, id: u32, decoration: spv::Decoration) {
+        let meta = self.meta.get_mut(&id).unwrap();
         meta.decoration.decoration_flags.clear(decoration as u32);
 
         match decoration {
@@ -338,31 +288,20 @@ impl ParsedIR {
                 let counter = meta.hlsl_magic_counter_buffer;
                 if counter != 0 {
                     meta.hlsl_magic_counter_buffer = 0;
-                    self
-                        .meta
+                    self.meta
                         .get_mut(&counter)
                         .unwrap()
                         .hlsl_is_magic_counter_buffer = false;
                 }
             }
-            _  => (),
+            _ => (),
         }
     }
 
-    pub fn set_member_name(
-        &mut self,
-        id: u32,
-        index: u32,
-        name: String,
-    ) {
-        let meta = self.meta
-            .get_mut(&id)
-            .unwrap();
+    pub fn set_member_name(&mut self, id: u32, index: u32, name: String) {
+        let meta = self.meta.get_mut(&id).unwrap();
         meta.members.resize(
-            max(
-                meta.members.len(),
-                index as usize + 1,
-            ),
+            max(meta.members.len(), index as usize + 1),
             Decoration::default(),
         );
         let _str = &mut meta.members[index as usize].alias;
@@ -372,21 +311,18 @@ impl ParsedIR {
         }
 
         // Reserved for unnamed members.
-        if name.as_bytes()[0] as char == '_' && name.len() >= 3
+        if name.as_bytes()[0] as char == '_'
+            && name.len() >= 3
             && name.as_bytes()[1] as char == 'm'
-            && (name.as_bytes()[2] as char).is_digit(10) {
+            && (name.as_bytes()[2] as char).is_digit(10)
+        {
             return;
         }
 
-        meta.members[index as usize].alias
-            = ensure_valid_identifier(name, true);
+        meta.members[index as usize].alias = ensure_valid_identifier(name, true);
     }
 
-    fn get_member_name(
-        &self,
-        id: u32,
-        index: usize,
-    ) -> String {
+    fn get_member_name(&self, id: u32, index: usize) -> String {
         if let Some(m) = self.find_meta(id) {
             if index >= m.members.len() {
                 self.empty_string.to_owned()
@@ -406,14 +342,9 @@ impl ParsedIR {
         argument: impl Into<Option<u32>>,
     ) {
         let argument = argument.into().unwrap_or(0);
-        let meta = self.meta
-            .get_mut(&id)
-            .unwrap();
+        let meta = self.meta.get_mut(&id).unwrap();
         meta.members.resize(
-            max(
-                meta.members.len(),
-                index as usize,
-            ),
+            max(meta.members.len(), index as usize),
             Decoration::default(),
         );
         let dec = &mut meta.members[index as usize];
@@ -445,7 +376,7 @@ impl ParsedIR {
             spv::Decoration::Index => {
                 dec.index = argument;
             }
-            _ => ()
+            _ => (),
         }
     }
 
@@ -456,15 +387,10 @@ impl ParsedIR {
         decoration: spv::Decoration,
         argument: String,
     ) {
-        let meta = self.meta
-            .get_mut(&id)
-            .unwrap();
+        let meta = self.meta.get_mut(&id).unwrap();
 
         meta.members.resize(
-            max(
-                meta.members.len(),
-                index as usize,
-            ),
+            max(meta.members.len(), index as usize),
             Decoration::default(),
         );
 
@@ -472,16 +398,11 @@ impl ParsedIR {
         dec.decoration_flags.set(decoration as u32);
 
         if let spv::Decoration::HlslSemantic = decoration {
-                dec.hlsl_semantic = argument;
+            dec.hlsl_semantic = argument;
         }
     }
 
-    fn get_member_decoration(
-        &self,
-        id: u32,
-        index: u32,
-        decoration: spv::Decoration,
-    ) -> u32 {
+    fn get_member_decoration(&self, id: u32, index: u32, decoration: spv::Decoration) -> u32 {
         let meta = match self.find_meta(id) {
             None => return 0,
             Some(m) => m,
@@ -531,70 +452,42 @@ impl ParsedIR {
         }
     }
 
-    fn has_member_decoration(
-        &self,
-        id: u32,
-        index: u32,
-        decoration: spv::Decoration,
-    ) -> bool {
+    fn has_member_decoration(&self, id: u32, index: u32, decoration: spv::Decoration) -> bool {
         self.get_member_decoration_bitset(id, index)
             .get(decoration as u32)
     }
 
-    fn get_member_decoration_bitset(
-        &self,
-        id: u32,
-        index: u32,
-    ) -> &Bitset {
+    fn get_member_decoration_bitset(&self, id: u32, index: u32) -> &Bitset {
         if let Some(meta) = self.find_meta(id) {
             if index >= meta.members.len() as u32 {
                 return &self.cleared_bitset;
             }
-            return &meta.members[index as usize]
-                .decoration_flags;
+            return &meta.members[index as usize].decoration_flags;
         }
         &self.cleared_bitset
     }
 
-    fn maybe_get_member_decoration_bitset(
-        &self,
-        id: u32,
-        index: u32,
-    ) -> Option<&Bitset> {
+    fn maybe_get_member_decoration_bitset(&self, id: u32, index: u32) -> Option<&Bitset> {
         if let Some(meta) = self.find_meta(id) {
             if index >= meta.members.len() as u32 {
                 return None;
             }
-            return Some(&meta.members[index as usize]
-                .decoration_flags);
+            return Some(&meta.members[index as usize].decoration_flags);
         }
         None
     }
 
-    fn set_member_decoration_bitset(
-        &mut self,
-        id: u32,
-        index: u32,
-        new_flags: Bitset,
-    ) {
+    fn set_member_decoration_bitset(&mut self, id: u32, index: u32, new_flags: Bitset) {
         if let Some(meta) = self.find_meta_mut(id) {
             if index >= meta.members.len() as u32 {
                 return;
             }
-            meta.members[index as usize]
-                .decoration_flags = new_flags;
+            meta.members[index as usize].decoration_flags = new_flags;
         }
     }
 
-    fn unset_member_decoration(
-        &mut self,
-        id: u32,
-        index: u32,
-        decoration: spv::Decoration,
-    ) {
-        let meta = self.meta
-            .get_mut(&id)
-            .unwrap();
+    fn unset_member_decoration(&mut self, id: u32, index: u32, decoration: spv::Decoration) {
+        let meta = self.meta.get_mut(&id).unwrap();
 
         if index >= meta.members.len() as u32 {
             return;
@@ -603,7 +496,7 @@ impl ParsedIR {
         let dec = &mut meta.members[index as usize];
         dec.decoration_flags.clear(decoration as u32);
 
-//        use spv::Decoration::*;
+        //        use spv::Decoration::*;
 
         match decoration {
             spv::Decoration::BuiltIn => {
@@ -633,14 +526,12 @@ impl ParsedIR {
     pub fn mark_used_as_array_length(&mut self, id: u32) {
         let _type = self.ids[id as usize].get().get_type();
         match _type {
-            Types::Constant => {
-                match self.ids[id as usize].get_mut() {
-                    VariantHolder::Constant(value) => {
-                        value.is_used_as_array_length = true;
-                    }
-                    _ => panic!("Bad cast"),
-                }  
-            }
+            Types::Constant => match self.ids[id as usize].get_mut() {
+                VariantHolder::Constant(value) => {
+                    value.is_used_as_array_length = true;
+                }
+                _ => panic!("Bad cast"),
+            },
             Types::ConstantOp => {
                 let cop = match self.ids[id as usize].get() {
                     VariantHolder::ConstantOp(value) => value,
@@ -654,14 +545,10 @@ impl ParsedIR {
             _ => panic!(),
         }
     }
-    fn increase_bound_by(
-        &mut self,
-        incr_amount: u32,
-    ) -> u32 {
+    fn increase_bound_by(&mut self, incr_amount: u32) -> u32 {
         let curr_bound = self.ids.len() as u32;
         let new_bound = curr_bound + incr_amount;
-        self.ids
-            .resize(new_bound as usize, Variant::default());
+        self.ids.resize(new_bound as usize, Variant::default());
         self.block_meta
             .resize(new_bound as usize, BlockMetaFlags::default());
         curr_bound as u32
@@ -671,7 +558,7 @@ impl ParsedIR {
             VariantHolder::Type(_type) => _type,
             _ => panic!("Bad cast"),
         };
-        
+
         assert_eq!(_type.basetype.clone() as u32, BaseType::Struct as u32);
 
         // Some flags like non-writable, non-readable are actually found
@@ -689,14 +576,10 @@ impl ParsedIR {
         let member_types_len = _type.member_types.len();
         let id = _type.get_self();
 
-        let mut all_member_flags = self.get_member_decoration_bitset(
-            id,
-            0,
-        ).clone();
+        let mut all_member_flags = self.get_member_decoration_bitset(id, 0).clone();
 
         for index in 1..member_types_len as u32 {
-            let other = self
-                .get_member_decoration_bitset(id, index);
+            let other = self.get_member_decoration_bitset(id, index);
             all_member_flags.merge_and(other);
         }
 
@@ -707,11 +590,7 @@ impl ParsedIR {
         base_flags
     }
 
-    pub fn add_typed_id(
-        &mut self,
-        id: u32,
-        _type: Types,
-    ) {
+    pub fn add_typed_id(&mut self, id: u32, _type: Types) {
         if self.loop_iteration_depth != 0 {
             panic!("Cannot add typed ID while looping over it.");
         }
@@ -734,21 +613,13 @@ impl ParsedIR {
         }
 
         if self.ids[id as usize].empty() {
-            self.ids_for_type[_type as usize]
-                .push(id);
+            self.ids_for_type[_type as usize].push(id);
         } else if self.ids[id as usize].get_type() as u32 != _type as u32 {
-            self.remove_typed_id(
-                self.ids[id as usize].get_type(),
-                id,
-            );
+            self.remove_typed_id(self.ids[id as usize].get_type(), id);
             self.ids_for_type[_type as usize].push(id);
         }
     }
-    fn remove_typed_id(
-        &mut self,
-        _type: Types,
-        id: u32,
-    ) {
+    fn remove_typed_id(&mut self, _type: Types, id: u32) {
         let type_ids = &mut self.ids_for_type[_type as usize];
         type_ids.retain(|x| *x != id);
     }
@@ -791,21 +662,18 @@ impl ParsedIR {
     }
 }
 
-fn ensure_valid_identifier(
-    name: String,
-    member: bool,
-) -> String {
+fn ensure_valid_identifier(name: String, member: bool) -> String {
     // Functions in glslangValidator are mangled with name(<mangled> stuff.
     // Normally, we would never see '(' in any legal identifiers, so just strip them out.
     let mut _str = name[0..name.find('(').unwrap_or_else(|| name.len())]
-        .to_owned().into_bytes();
+        .to_owned()
+        .into_bytes();
     for i in 0.._str.len() {
         let mut c = _str[i] as char;
         if member {
             // _m<num> variables are reserved by the internal implementation,
             // otherwise, make sure the name is a valid identifier.
-            if i == 0 ||
-                i == 2 && _str[0] as char == '_' && _str[1]  as char == 'm' {
+            if i == 0 || i == 2 && _str[0] as char == '_' && _str[1] as char == 'm' {
                 c = if c.is_alphabetic() { c } else { '_' };
             } else {
                 c = if c.is_alphanumeric() { c } else { '_' };
