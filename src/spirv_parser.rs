@@ -4,9 +4,9 @@ use crate::spirv::{
     self as spv, AccessQualifier, Capability, ExecutionMode, Op, SourceLanguage, StorageClass,
 };
 use crate::spirv_common::{
-    to_signed_basetype, to_unsigned_basetype, BaseType, Extension, IVariant, Instruction,
-    SPIRBlock, SPIREntryPoint, SPIRExtension, SPIRFunction, SPIRFunctionPrototype, SPIRType,
-    SPIRUndef, Types, VariantHolder,
+    to_signed_basetype, to_unsigned_basetype, BaseType, Extension, IVariant, Instruction, Phi,
+    SPIRBlock, SPIRConstant, SPIREntryPoint, SPIRExtension, SPIRFunction, SPIRFunctionPrototype,
+    SPIRType, SPIRUndef, SPIRVariable, Types, VariantHolder,
 };
 use crate::spirv_cross_parsed_ir::ParsedIR;
 
@@ -64,14 +64,14 @@ impl Parser {
         let ops = ops.unwrap();
 
         match op {
-            Op::MemoryModel => (),
-            Op::SourceContinued => (),
-            Op::SourceExtension => (),
-            Op::Nop => (),
-            Op::Line => (),
-            Op::NoLine => (),
-            Op::String => (),
-            Op::ModuleProcessed => (),
+            Op::MemoryModel
+            | Op::SourceContinued
+            | Op::SourceExtension
+            | Op::Nop
+            | Op::Line
+            | Op::NoLine
+            | Op::String
+            | Op::ModuleProcessed => {}
 
             Op::Source => {
                 let lang = FromPrimitive::from_u32(ops[0]).unwrap();
@@ -280,8 +280,8 @@ impl Parser {
                 }
             }
 
-            Op::Decorate => {
-                // OpDecorateId technically supports an array of arguments, but our only supported decorations are single uint,
+            Op::Decorate | Op::DecorateId => {
+                // Op::DecorateId technically supports an array of arguments, but our only supported decorations are single uint,
                 // so merge decorate and decorate-id here.
                 let id = ops[0];
 
@@ -294,25 +294,6 @@ impl Parser {
                     //                        // TODO: fix data() thing
                     //                        .insert(decoration as u32, (&ops[2] - self.ir.spirv.data()) as u32);
                     self.ir.set_decoration(id, decoration, ops[2]);
-                } else {
-                    self.ir.set_decoration(id, decoration, None);
-                }
-            }
-
-            Op::DecorateId => {
-                // OpDecorateId technically supports an array of arguments, but our only supported decorations are single uint,
-                // so merge decorate and decorate-id here.
-                let id = ops[0];
-
-                let decoration: spv::Decoration = FromPrimitive::from_u32(ops[1]).unwrap();
-                if length >= 3 {
-                    //                    self.ir.meta
-                    //                        .get_mut(&id)
-                    //                        .unwrap()
-                    //                        .decoration_word_offset
-                    //                        // TODO: fix data thing
-                    //                        .insert(decoration as u32, (&ops[2] - self.ir.spirv.data()) as u32);
-                    //                    self.ir.set_decoration(id, decoration, ops[2]);
                 } else {
                     self.ir.set_decoration(id, decoration, None);
                 }
@@ -406,10 +387,7 @@ impl Parser {
                 let id = ops[0];
                 let vecsize = ops[2];
 
-                let base = match self.get(ops[1] as usize) {
-                    VariantHolder::Type(value) => value,
-                    _ => panic!("Bad cast"),
-                };
+                let base = self.get::<SPIRType>(ops[1] as usize);
 
                 let mut vecbase = base.clone();
                 vecbase.vecsize = vecsize;
@@ -423,10 +401,7 @@ impl Parser {
                 let id = ops[0];
                 let colcount = ops[2];
 
-                let base = match self.get(ops[1] as usize) {
-                    VariantHolder::Type(value) => value,
-                    _ => panic!("Bad case"),
-                };
+                let base = self.get::<SPIRType>(ops[1] as usize);
                 let mut matrixbase = base.clone();
 
                 matrixbase.columns = colcount;
@@ -440,17 +415,14 @@ impl Parser {
                 let id = ops[0];
 
                 let tid = ops[1];
-                let base = match self.get(tid as usize) {
-                    VariantHolder::Type(value) => value,
-                    _ => panic!("Bad cast"),
-                };
+                let base = self.get::<SPIRType>(tid as usize);
 
                 let mut arraybase = base.clone();
                 arraybase.parent_type = tid;
 
                 let cid = ops[2];
                 self.ir.mark_used_as_array_length(cid);
-                let c = match self.get(cid as usize) {
+                let c = match self.ir.ids[cid as usize].get() {
                     VariantHolder::Constant(value) => Some(value),
                     _ => None,
                 };
@@ -470,10 +442,7 @@ impl Parser {
             Op::TypeRuntimeArray => {
                 let id = ops[0];
 
-                let base = match self.get(ops[1] as usize) {
-                    VariantHolder::Type(value) => value,
-                    _ => panic!("Bad type"),
-                };
+                let base = self.get::<SPIRType>(ops[1] as usize);
 
                 let mut arraybase = base.clone();
                 arraybase.array.push(0);
@@ -512,10 +481,7 @@ impl Parser {
             Op::TypeSampledImage => {
                 let id = ops[0];
                 let imagetype = ops[1];
-                let base = match self.get(imagetype as usize) {
-                    VariantHolder::Type(value) => value,
-                    _ => panic!("Bad cast"),
-                };
+                let base = self.get::<SPIRType>(imagetype as usize);
                 let mut _type = base.clone();
                 _type.basetype = BaseType::SampledImage;
                 _type.set_self(id);
@@ -532,10 +498,7 @@ impl Parser {
             Op::TypePointer => {
                 let id = ops[0];
 
-                let base = match self.get(ops[2] as usize) {
-                    VariantHolder::Type(value) => value,
-                    _ => panic!("Bad cast"),
-                };
+                let base = self.get::<SPIRType>(ops[2] as usize);
 
                 let mut ptrbase = base.clone();
                 ptrbase.pointer = true;
@@ -576,14 +539,11 @@ impl Parser {
                 let consider_aliasing = !self.ir.get_name(_type.get_self()).is_empty();
                 if consider_aliasing {
                     for other in &self.global_struct_cache {
-                        let get_other = || -> &SPIRType {
-                            match self.get(*other as usize) {
-                                VariantHolder::Type(value) => value,
-                                _ => panic!("Bad cast"),
-                            }
-                        };
                         if self.ir.get_name(_type.get_self()) == self.ir.get_name(*other)
-                            && self.types_are_logically_equivalent(&_type, get_other())
+                            && self.types_are_logically_equivalent(
+                                &_type,
+                                self.get::<SPIRType>(*other as usize),
+                            )
                         {
                             _type.type_alias = *other;
                             break;
@@ -612,6 +572,201 @@ impl Parser {
             // Variable declaration
             // All variables are essentially pointers with a storage qualifier.
             Op::Variable => {
+                let _type = ops[0];
+                let id = ops[1];
+                let storage: StorageClass = FromPrimitive::from_u32(ops[2]).unwrap();
+                let initializer = if length == 4 { ops[3] } else { 0 };
+
+                if let StorageClass::Function = storage {
+                    if let Some(value) = &mut self.current_function {
+                        value.add_local_variable(id);
+                    } else {
+                        panic!("No function currently in scope");
+                    }
+                }
+
+                let variable = Box::new(SPIRVariable::new(_type, storage, initializer, None));
+
+                // hlsl based shaders don't have those decorations. force them and then reset when reading/writing images
+                let ttype = self.get::<SPIRType>(_type as usize);
+                if let BaseType::Image = ttype.basetype {
+                    self.ir
+                        .set_decoration(id, spv::Decoration::NonWritable, None);
+                    self.ir
+                        .set_decoration(id, spv::Decoration::NonReadable, None);
+                }
+
+                self.set(id, VariantHolder::Variable(variable));
+            }
+
+            Op::Phi => {
+                let current_function = if let Some(value) = &mut self.current_function {
+                    value
+                } else {
+                    panic!("No function currently in scope");
+                };
+                let current_block = if let Some(value) = &mut self.current_block {
+                    value
+                } else {
+                    panic!("No block currently in scope");
+                };
+
+                let result_type = ops[0];
+                let id = ops[1];
+
+                // Instead of a temporary, create a new function-wide temporary with this ID instead.
+                let mut var = Box::new(SPIRVariable::new(
+                    result_type,
+                    StorageClass::Function,
+                    None,
+                    None,
+                ));
+
+                var.phi_variable = true;
+
+                current_function.add_local_variable(id);
+
+                let mut i = 2usize;
+                while i + 2 <= length as usize {
+                    current_block
+                        .phi_variables
+                        .push(Phi::new(ops[i], ops[i + 1], id));
+                    i += 2;
+                }
+
+                self.set(id, VariantHolder::Variable(var));
+            }
+
+            Op::SpecConstant | Op::Constant => {
+                let id = ops[1];
+                let _type = self.get::<SPIRType>(ops[0] as usize);
+
+                let constant = if _type.width > 32 {
+                    SPIRConstant::new_with_scalar_u64_and_specialization(
+                        ops[0],
+                        u64::from(ops[2]) | (u64::from(ops[3]) << 32),
+                        op == Op::SpecConstant,
+                    )
+                } else {
+                    SPIRConstant::new_with_scalar_u32_and_specialization(
+                        ops[0],
+                        ops[2],
+                        op == Op::SpecConstant,
+                    )
+                };
+                self.set(id, VariantHolder::Constant(Box::new(constant)));
+            }
+
+            Op::SpecConstantFalse | Op::ConstantFalse => {
+                let id = ops[1];
+                let constant = SPIRConstant::new_with_scalar_u32_and_specialization(
+                    ops[0],
+                    0u32,
+                    op == Op::SpecConstantFalse,
+                );
+                self.set(id, VariantHolder::Constant(Box::new(constant)));
+            }
+
+            Op::SpecConstantTrue | Op::ConstantTrue => {
+                let id = ops[1];
+                let constant = SPIRConstant::new_with_scalar_u32_and_specialization(
+                    ops[0],
+                    1u32,
+                    op == Op::SpecConstantFalse,
+                );
+                self.set(id, VariantHolder::Constant(Box::new(constant)));
+            }
+
+            Op::ConstantNull => {
+                let id = ops[1];
+                let _type = ops[0];
+                self.make_constant_null(id, _type);
+            }
+
+            Op::SpecConstantComposite | Op::ConstantComposite => {
+                let id = ops[1];
+                let _type = ops[0];
+
+                let ctype = self.get::<SPIRType>(_type as usize);
+
+                // We can have constants which are structs and arrays.
+                // In this case, our SPIRConstant will be a list of other SPIRConstant ids which we
+                // can refer to.
+                let constant = if ctype.basetype == BaseType::Struct || !ctype.array.is_empty() {
+                    let subconstants = ops[2..length as usize].to_vec();
+                    SPIRConstant::new_with_subconstants_and_specialization(
+                        _type,
+                        subconstants,
+                        op == Op::SpecConstantComposite,
+                    )
+                } else {
+                    let elements = length - 2;
+                    if elements > 4 {
+                        panic!("Op::ConstantComposite only supports 1, 2, 3 and 4 elements.");
+                    }
+
+                    let mut remapped_constant_ops: Vec<SPIRConstant> = vec![];
+                    for _i in 0..elements as usize {
+                        // constant type here is a placeholder, it will be overwritten later
+                        remapped_constant_ops.push(SPIRConstant::new(0));
+                    }
+                    for i in 0..elements as usize {
+                        // Specialization constants operations can also be part of this.
+                        // We do not know their value, so any attempt to query SPIRConstant later
+                        // will fail. We can only propagate the ID of the expression and use to_expression on it.
+                        if let VariantHolder::ConstantOp(constant_op) =
+                            self.ir.ids[ops[2 + i] as usize].get()
+                        {
+                            if op == Op::ConstantComposite {
+                                panic!("Specialization constant operation used in Op::ConstantComposite.");
+                            }
+                            remapped_constant_ops[i]
+                                .make_null(self.get::<SPIRType>(constant_op.basetype as usize));
+                            remapped_constant_ops[i].set_self(constant_op.get_self());
+                            remapped_constant_ops[i].constant_type = constant_op.basetype;
+                            remapped_constant_ops[i].specialization = true;
+                        }
+                    }
+
+                    let mut c: Vec<&SPIRConstant> = vec![];
+                    // Run loop second time to avoid borrowing as mutable and as immutable simultaneously
+                    for i in 0..elements as usize {
+                        if let VariantHolder::ConstantOp(_) = self.ir.ids[ops[2 + i] as usize].get()
+                        {
+                            c.push(&remapped_constant_ops[i]);
+                        } else {
+                            c.push(self.get::<SPIRConstant>(ops[2 + i] as usize));
+                        }
+                    }
+                    SPIRConstant::new_with_vector_elements_and_specialization(
+                        _type,
+                        &c,
+                        op == Op::SpecConstantComposite,
+                    )
+                };
+                self.set(id, VariantHolder::Constant(Box::new(constant)));
+            }
+
+            Op::Function => {
+                let res = ops[0];
+                let id = ops[1];
+                // Control
+                let _type = ops[3];
+
+                if self.current_function.is_some() {
+                    panic!("Must end a function before starting a new one!");
+                }
+
+                let current_function = SPIRFunction::new(res, _type);
+                self.set(
+                    id,
+                    VariantHolder::Function(Box::new(current_function.clone())),
+                );
+
+                self.current_function = Some(current_function);
+            }
+
+            Op::FunctionParameter => {
                 // ...
             }
 
@@ -727,8 +882,9 @@ impl Parser {
         self.ir.ids[id as usize].set(holder);
     }
 
-    fn get(&self, id: usize) -> &VariantHolder {
-        self.ir.ids[id].get()
+    #[allow(clippy::borrowed_box)]
+    fn get<T: IVariant>(&self, id: usize) -> &Box<T> {
+        T::cast(self.ir.ids[id].get())
     }
 
     fn maybe_get(&self, id: usize, _type: Types) -> Option<&VariantHolder> {
@@ -774,21 +930,54 @@ impl Parser {
             return false;
         }
 
-        let get_type = |id: u32| -> &SPIRType {
-            match self.get(id as usize) {
-                VariantHolder::Type(value) => value,
-                _ => panic!("Bad cast"),
-            }
-        };
-
         for i in 0..a.member_types.len() {
-            let type_a = get_type(a.member_types[i]);
-            let type_b = get_type(b.member_types[i]);
+            let type_a = self.get::<SPIRType>(a.member_types[i] as usize);
+            let type_b = self.get::<SPIRType>(b.member_types[i] as usize);
             if !self.types_are_logically_equivalent(type_a, type_b) {
                 return false;
             }
         }
 
         true
+    }
+
+    fn make_constant_null(&mut self, id: u32, _type: u32) {
+        let constant_type = *self.get::<SPIRType>(_type as usize).clone();
+
+        let constant = if constant_type.pointer {
+            let mut constant = SPIRConstant::new(_type);
+            constant.make_null(&constant_type);
+            constant
+        } else if !constant_type.array.is_empty() {
+            assert_ne!(constant_type.parent_type, 0);
+            let parent_id = self.ir.increase_bound_by(1);
+            self.make_constant_null(parent_id, constant_type.parent_type);
+
+            if !constant_type.array_size_literal.last().unwrap() {
+                panic!("Array size of Op::ConstantNull must be a literal.");
+            }
+
+            let array_size = *constant_type.array.last().unwrap() as usize;
+            let subconstants = vec![parent_id; array_size];
+
+            SPIRConstant::new_with_subconstants_and_specialization(_type, subconstants, false)
+        } else if !constant_type.member_types.is_empty() {
+            let members_len = constant_type.member_types.len();
+            let member_ids = self.ir.increase_bound_by(members_len as u32);
+
+            let mut subconstants = vec![0; members_len];
+            for (i, item) in subconstants.iter_mut().enumerate() {
+                self.make_constant_null(member_ids + i as u32, constant_type.member_types[i]);
+                *item = member_ids + i as u32;
+            }
+
+            SPIRConstant::new_with_subconstants_and_specialization(_type, subconstants, false)
+        } else {
+            let mut constant = SPIRConstant::new(_type);
+            constant.make_null(&constant_type);
+            constant
+        };
+
+        self.set(id, VariantHolder::Constant(Box::new(constant)));
     }
 }

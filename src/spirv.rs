@@ -704,7 +704,7 @@ pub enum Capability {
     Max = 0x7fff_ffff,
 }
 
-#[derive(Clone, Copy, FromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq, FromPrimitive)]
 pub enum Op {
     Nop = 0,
     Undef = 1,

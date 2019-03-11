@@ -160,10 +160,9 @@ impl Default for Instruction {
 pub trait IVariant {
     fn get_self(&self) -> u32;
     fn set_self(&mut self, _self: u32);
-}
-
-pub trait HasType {
     fn get_type() -> Types;
+    #[allow(clippy::borrowed_box)]
+    fn cast(value: &VariantHolder) -> &Box<Self>;
 }
 
 #[derive(Clone, Copy)]
@@ -264,10 +263,15 @@ impl IVariant for SPIRUndef {
     fn set_self(&mut self, value: u32) {
         self._self = value;
     }
-}
-impl HasType for SPIRUndef {
     fn get_type() -> Types {
         Types::Undef
+    }
+    fn cast(from: &VariantHolder) -> &Box<Self> {
+        if let VariantHolder::Undef(value) = from {
+            value
+        } else {
+            panic!("Bad cast")
+        }
     }
 }
 
@@ -292,10 +296,15 @@ impl IVariant for SPIRCombinedImageSampler {
     fn set_self(&mut self, value: u32) {
         self._self = value;
     }
-}
-impl HasType for SPIRCombinedImageSampler {
     fn get_type() -> Types {
         Types::CombinedImageSampler
+    }
+    fn cast(from: &VariantHolder) -> &Box<Self> {
+        if let VariantHolder::CombinedImageSampler(value) = from {
+            value
+        } else {
+            panic!("Bad cast")
+        }
     }
 }
 
@@ -314,7 +323,7 @@ impl SPIRCombinedImageSampler {
 pub struct SPIRConstantOp {
     opcode: spv::Op,
     pub arguments: Vec<u32>,
-    basetype: u32,
+    pub basetype: u32,
     _self: u32,
 }
 
@@ -325,10 +334,15 @@ impl IVariant for SPIRConstantOp {
     fn set_self(&mut self, value: u32) {
         self._self = value;
     }
-}
-impl HasType for SPIRConstantOp {
     fn get_type() -> Types {
         Types::ConstantOp
+    }
+    fn cast(from: &VariantHolder) -> &Box<Self> {
+        if let VariantHolder::ConstantOp(value) = from {
+            value
+        } else {
+            panic!("Bad cast")
+        }
     }
 }
 
@@ -444,10 +458,15 @@ impl IVariant for SPIRType {
     fn set_self(&mut self, value: u32) {
         self._self = value;
     }
-}
-impl HasType for SPIRType {
     fn get_type() -> Types {
         Types::Type
+    }
+    fn cast(from: &VariantHolder) -> &Box<Self> {
+        if let VariantHolder::Type(value) = from {
+            value
+        } else {
+            panic!("Bad cast")
+        }
     }
 }
 
@@ -511,10 +530,15 @@ impl IVariant for SPIRExtension {
     fn set_self(&mut self, value: u32) {
         self._self = value;
     }
-}
-impl HasType for SPIRExtension {
     fn get_type() -> Types {
         Types::Extension
+    }
+    fn cast(from: &VariantHolder) -> &Box<Self> {
+        if let VariantHolder::Extension(value) = from {
+            value
+        } else {
+            panic!("Bad cast")
+        }
     }
 }
 
@@ -616,10 +640,15 @@ impl IVariant for SPIRExpression {
     fn set_self(&mut self, value: u32) {
         self._self = value;
     }
-}
-impl HasType for SPIRExpression {
     fn get_type() -> Types {
         Types::Expression
+    }
+    fn cast(from: &VariantHolder) -> &Box<Self> {
+        if let VariantHolder::Expression(value) = from {
+            value
+        } else {
+            panic!("Bad cast")
+        }
     }
 }
 
@@ -654,10 +683,15 @@ impl IVariant for SPIRFunctionPrototype {
     fn set_self(&mut self, value: u32) {
         self._self = value;
     }
-}
-impl HasType for SPIRFunctionPrototype {
     fn get_type() -> Types {
         Types::FunctionPrototype
+    }
+    fn cast(from: &VariantHolder) -> &Box<Self> {
+        if let VariantHolder::FunctionPrototype(value) = from {
+            value
+        } else {
+            panic!("Bad cast")
+        }
     }
 }
 
@@ -726,10 +760,20 @@ enum ContinueBlockType {
 }
 
 #[derive(Clone, Default)]
-struct Phi {
+pub struct Phi {
     local_variable: u32,    // flush local variable ...
     parent: u32,            // If we're in from_block and want to branch into this block ...
     function_variable: u32, // to this function-global "phi" variable first.
+}
+
+impl Phi {
+    pub fn new(local_variable: u32, parent: u32, function_variable: u32) -> Self {
+        Phi {
+            local_variable,
+            parent,
+            function_variable,
+        }
+    }
 }
 
 #[derive(Clone, Default)]
@@ -756,7 +800,7 @@ pub struct SPIRBlock {
     ops: Vec<Instruction>,
 
     // Before entering this block flush out local variables to magical "phi" variables.
-    phi_variables: Vec<Phi>,
+    pub phi_variables: Vec<Phi>,
 
     // Declare these temporaries before beginning the block.
     // Used for handling complex continue blocks which have side effects.
@@ -806,11 +850,15 @@ impl IVariant for SPIRBlock {
     fn set_self(&mut self, value: u32) {
         self._self = value;
     }
-}
-
-impl HasType for SPIRBlock {
     fn get_type() -> Types {
         Types::Block
+    }
+    fn cast(from: &VariantHolder) -> &Box<Self> {
+        if let VariantHolder::Block(value) = from {
+            value
+        } else {
+            panic!("Bad cast")
+        }
     }
 }
 
@@ -921,15 +969,20 @@ impl IVariant for SPIRFunction {
     fn set_self(&mut self, value: u32) {
         self._self = value;
     }
-}
-impl HasType for SPIRFunction {
     fn get_type() -> Types {
         Types::Function
+    }
+    fn cast(from: &VariantHolder) -> &Box<Self> {
+        if let VariantHolder::Function(value) = from {
+            value
+        } else {
+            panic!("Bad cast")
+        }
     }
 }
 
 impl SPIRFunction {
-    fn new(return_type: u32, function_type: u32) -> Self {
+    pub fn new(return_type: u32, function_type: u32) -> Self {
         SPIRFunction {
             return_type,
             function_type,
@@ -949,7 +1002,7 @@ impl SPIRFunction {
         }
     }
 
-    fn add_local_variable(&mut self, id: u32) {
+    pub fn add_local_variable(&mut self, id: u32) {
         self.local_variables.push(id);
     }
 
@@ -998,10 +1051,15 @@ impl IVariant for SPIRAccessChain {
     fn set_self(&mut self, value: u32) {
         self._self = value;
     }
-}
-impl HasType for SPIRAccessChain {
     fn get_type() -> Types {
         Types::AccessChain
+    }
+    fn cast(from: &VariantHolder) -> &Box<Self> {
+        if let VariantHolder::AccessChain(value) = from {
+            value
+        } else {
+            panic!("Bad cast")
+        }
     }
 }
 
@@ -1052,7 +1110,7 @@ pub struct SPIRVariable {
     forwardable: bool,
 
     deferred_declaration: bool,
-    phi_variable: bool,
+    pub phi_variable: bool,
 
     // Used to deal with Phi variable flushes. See flush_phi().
     allocate_temporary_copy: bool,
@@ -1081,15 +1139,20 @@ impl IVariant for SPIRVariable {
     fn set_self(&mut self, value: u32) {
         self._self = value;
     }
-}
-impl HasType for SPIRVariable {
     fn get_type() -> Types {
         Types::Variable
+    }
+    fn cast(from: &VariantHolder) -> &Box<Self> {
+        if let VariantHolder::Variable(value) = from {
+            value
+        } else {
+            panic!("Bad cast")
+        }
     }
 }
 
 impl SPIRVariable {
-    fn new(
+    pub fn new(
         basetype: u32,
         storage: spv::StorageClass,
         initializer: impl Into<Option<u32>>,  // 0
@@ -1201,7 +1264,7 @@ impl Default for ConstantMatrix {
 
 #[derive(Clone)]
 pub struct SPIRConstant {
-    constant_type: u32,
+    pub constant_type: u32,
     m: ConstantMatrix,
 
     // If this constant is a specialization constant (i.e. created with OpSpecConstant*).
@@ -1231,15 +1294,20 @@ impl IVariant for SPIRConstant {
     fn set_self(&mut self, value: u32) {
         self._self = value;
     }
-}
-impl HasType for SPIRConstant {
     fn get_type() -> Types {
         Types::Constant
+    }
+    fn cast(from: &VariantHolder) -> &Box<Self> {
+        if let VariantHolder::Constant(value) = from {
+            value
+        } else {
+            panic!("Bad cast")
+        }
     }
 }
 
 impl SPIRConstant {
-    fn new(constant_type: u32) -> Self {
+    pub fn new(constant_type: u32) -> Self {
         SPIRConstant {
             constant_type,
             m: ConstantMatrix::default(),
@@ -1252,25 +1320,25 @@ impl SPIRConstant {
         }
     }
 
-    fn new_with_subconstants_and_specialization(
+    pub fn new_with_subconstants_and_specialization(
         constant_type: u32,
-        elements: Vec<u32>,
-        specialized: bool,
+        subconstants: Vec<u32>,
+        specialization: bool,
     ) -> Self {
         SPIRConstant {
             constant_type,
             m: ConstantMatrix::default(),
-            specialization: specialized,
+            specialization,
             is_used_as_array_length: false,
             is_used_as_lut: false,
-            subconstants: elements,
+            subconstants,
             specialization_constant_macro_name: String::new(),
             _self: 0,
         }
     }
 
     // Construct scalar (32-bit).
-    fn new_with_scalar_u32_and_specialization(
+    pub fn new_with_scalar_u32_and_specialization(
         constant_type: u32,
         v0: u32,
         specialized: bool,
@@ -1292,7 +1360,7 @@ impl SPIRConstant {
     }
 
     // Construct scalar (64-bit).
-    fn new_with_scalar_u64_and_specialization(
+    pub fn new_with_scalar_u64_and_specialization(
         constant_type: u32,
         v0: u64,
         specialized: bool,
@@ -1313,9 +1381,9 @@ impl SPIRConstant {
         constant
     }
 
-    fn new_with_vector_elements_and_specialization(
+    pub fn new_with_vector_elements_and_specialization(
         constant_type: u32,
-        vector_elements: &[SPIRConstant],
+        vector_elements: &[&SPIRConstant],
         specialized: bool,
     ) -> Self {
         let mut constant = SPIRConstant {
@@ -1461,7 +1529,7 @@ impl SPIRConstant {
         self.m.columns
     }
 
-    fn make_null(&mut self, constant_type: SPIRType) {
+    pub fn make_null(&mut self, constant_type: &SPIRType) {
         self.m = ConstantMatrix::default();
         self.m.columns = constant_type.columns;
         for column in self.m.c.iter_mut() {

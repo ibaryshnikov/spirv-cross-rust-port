@@ -5,8 +5,8 @@ use num::FromPrimitive;
 
 use crate::spirv as spv;
 use crate::spirv_common::{
-    BaseType, Bitset, Decoration, HasType, IVariant, Meta, SPIREntryPoint, SPIRVariable, Types,
-    Variant, VariantHolder,
+    BaseType, Bitset, Decoration, IVariant, Meta, SPIREntryPoint, SPIRVariable, Types, Variant,
+    VariantHolder,
 };
 
 enum BlockMetaFlagBits {
@@ -545,7 +545,7 @@ impl ParsedIR {
             _ => panic!(),
         }
     }
-    fn increase_bound_by(&mut self, incr_amount: u32) -> u32 {
+    pub fn increase_bound_by(&mut self, incr_amount: u32) -> u32 {
         let curr_bound = self.ids.len() as u32;
         let new_bound = curr_bound + incr_amount;
         self.ids.resize(new_bound as usize, Variant::default());
@@ -624,7 +624,7 @@ impl ParsedIR {
         type_ids.retain(|x| *x != id);
     }
 
-    fn for_each_typed_id<T: HasType>(&mut self, op: impl Fn(u32, &VariantHolder)) {
+    fn for_each_typed_id<T: IVariant>(&mut self, op: impl Fn(u32, &VariantHolder)) {
         self.loop_iteration_depth += 1;
 
         // todo: do something with it
