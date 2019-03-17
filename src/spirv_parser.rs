@@ -1,14 +1,16 @@
 use num::FromPrimitive;
 
 use crate::spirv::{
-    self as spv, AccessQualifier, Capability, ExecutionMode, Op, SourceLanguage, StorageClass,
+    self as spv, AccessQualifier, Capability, ExecutionMode, LoopControlMask, Op,
+    SelectionControlMask, SourceLanguage, StorageClass,
 };
 use crate::spirv_common::{
-    to_signed_basetype, to_unsigned_basetype, BaseType, Extension, IVariant, Instruction, Phi,
-    SPIRBlock, SPIRConstant, SPIREntryPoint, SPIRExtension, SPIRFunction, SPIRFunctionPrototype,
-    SPIRType, SPIRUndef, SPIRVariable, Types, VariantHolder,
+    to_signed_basetype, to_unsigned_basetype, BaseType, Case, Extension, Hints, IVariant,
+    Instruction, Merge, Phi, SPIRBlock, SPIRConstant, SPIRConstantOp, SPIREntryPoint,
+    SPIRExtension, SPIRFunction, SPIRFunctionPrototype, SPIRType, SPIRUndef, SPIRVariable,
+    Terminator, Types, VariantHolder,
 };
-use crate::spirv_cross_parsed_ir::ParsedIR;
+use crate::spirv_cross_parsed_ir::{BlockMetaFlagBits, ParsedIR};
 
 struct Parser {
     ir: ParsedIR,
@@ -767,10 +769,235 @@ impl Parser {
             }
 
             Op::FunctionParameter => {
-                // ...
+                let _type = ops[0];
+                let id = ops[1];
+
+                match &mut self.current_function {
+                    Some(current_function) => {
+                        current_function.add_parameter(_type, id, None);
+                    }
+                    None => panic!("Must be in a function!"),
+                }
+
+                let value = Box::new(SPIRVariable::new(_type, StorageClass::Function, None, None));
+                self.set(id, VariantHolder::Variable(value));
             }
 
-            _ => {}
+            Op::FunctionEnd => {
+                if self.current_block.is_some() {
+                    // Very specific error message, but seems to come up quite often.
+                    panic!(
+                        "Cannot end a function before ending the current block.\n\
+                        Likely cause: If this SPIR-V was created from glslang HLSL, make sure the entry point is valid.");
+                }
+                self.current_function = None;
+            }
+
+            Op::Label => {
+                // OpLabel always starts a block.
+                let id = ops[0];
+                match &mut self.current_function {
+                    Some(current_function) => {
+                        current_function.blocks.push(id);
+                        if current_function.entry_block == 0 {
+                            current_function.entry_block = id;
+                        }
+                    }
+                    None => panic!("Blocks cannot exist outside functions!"),
+                }
+
+                if self.current_block.is_some() {
+                    panic!("Cannot start a block before ending the current block.");
+                }
+                let value = SPIRBlock::default();
+                self.current_block = Some(value.clone());
+
+                self.set(id, VariantHolder::Block(Box::new(value)));
+            }
+
+            Op::Branch => {
+                match &mut self.current_block {
+                    Some(current_block) => {
+                        let target = ops[0];
+                        current_block.terminator = Terminator::Direct;
+                        current_block.next_block = target;
+                    }
+                    None => panic!("Trying to end a non-existing block."),
+                }
+
+                self.current_block = None;
+            }
+
+            Op::BranchConditional => {
+                match &mut self.current_block {
+                    Some(current_block) => {
+                        current_block.condition = ops[0];
+                        current_block.true_block = ops[1];
+                        current_block.false_block = ops[2];
+                        current_block.terminator = Terminator::Select;
+                    }
+                    None => panic!("Trying to end a non-existing block."),
+                }
+
+                self.current_block = None;
+            }
+
+            Op::Switch => {
+                match &mut self.current_block {
+                    Some(current_block) => {
+                        if current_block.merge == Merge::None {
+                            panic!("Switch statement is not structured");
+                        }
+
+                        current_block.terminator = Terminator::MultiSelect;
+
+                        current_block.condition = ops[0];
+                        current_block.default_block = ops[1];
+
+                        let mut i = 2;
+                        while i + 2 <= length as usize {
+                            current_block.cases.push(Case {
+                                value: ops[i],
+                                block: ops[i + 1],
+                            });
+                            i += 2;
+                        }
+
+                        // If we jump to next block, make it break instead since we're inside a switch case block at that point.
+                        self.ir.block_meta[current_block.next_block as usize] |=
+                            BlockMetaFlagBits::MultiselectMerge as u8;
+                    }
+                    None => panic!("Trying to end a non-existing block."),
+                }
+
+                self.current_block = None;
+            }
+
+            Op::Kill => {
+                match &mut self.current_block {
+                    Some(current_block) => {
+                        current_block.terminator = Terminator::Kill;
+                    }
+                    None => panic!("Trying to end a non-existing block."),
+                }
+                self.current_block = None;
+            }
+
+            Op::Return => {
+                match &mut self.current_block {
+                    Some(current_block) => {
+                        current_block.terminator = Terminator::Return;
+                    }
+                    None => panic!("Trying to end a non-existing block."),
+                }
+                self.current_block = None;
+            }
+
+            Op::ReturnValue => {
+                match &mut self.current_block {
+                    Some(current_block) => {
+                        current_block.terminator = Terminator::Return;
+                        current_block.return_value = ops[0];
+                    }
+                    None => panic!("Trying to end a non-existing block."),
+                }
+                self.current_block = None;
+            }
+
+            Op::Unreachable => {
+                match &mut self.current_block {
+                    Some(current_block) => {
+                        current_block.terminator = Terminator::Unreachable;
+                    }
+                    None => panic!("Trying to end a non-existing block."),
+                }
+                self.current_block = None;
+            }
+
+            Op::SelectionMerge => {
+                match &mut self.current_block {
+                    Some(current_block) => {
+                        current_block.next_block = ops[0];
+                        current_block.merge = Merge::Selection;
+                        self.ir.block_meta[current_block.next_block as usize] |=
+                            BlockMetaFlagBits::SelectionMerge as u8;
+
+                        if length >= 2 {
+                            if (ops[1] & SelectionControlMask::FlattenMask as u32) != 0 {
+                                current_block.hint = Hints::Flatten;
+                            } else if (ops[1] & SelectionControlMask::DontFlattenMask as u32) != 0 {
+                                current_block.hint = Hints::DontFlatten;
+                            }
+                        }
+                    }
+                    None => panic!("Trying to modify a non-existing block."),
+                }
+                //
+            }
+
+            Op::LoopMerge => {
+                match &mut self.current_block {
+                    Some(current_block) => {
+                        current_block.merge_block = ops[0];
+                        current_block.continue_block = ops[1];
+                        current_block.merge = Merge::Loop;
+
+                        self.ir.block_meta[current_block.get_self() as usize] |=
+                            BlockMetaFlagBits::LoopHeader as u8;
+                        self.ir.block_meta[current_block.merge_block as usize] |=
+                            BlockMetaFlagBits::LoopMerge as u8;
+
+                        self.ir
+                            .continue_block_to_loop_header
+                            .insert(current_block.continue_block, current_block.get_self());
+
+                        // Don't add loop headers to continue blocks,
+                        // which would make it impossible branch into the loop header since
+                        // they are treated as continues.
+                        if current_block.continue_block != current_block.get_self() {
+                            self.ir.block_meta[current_block.continue_block as usize] |=
+                                BlockMetaFlagBits::Continue as u8;
+                        }
+
+                        if length >= 3 {
+                            if (ops[2] & LoopControlMask::UnrollMask as u32) != 0 {
+                                current_block.hint = Hints::Unroll;
+                            } else if (ops[2] & LoopControlMask::DontUnrollMask as u32) != 0 {
+                                current_block.hint = Hints::DontUnroll;
+                            }
+                        }
+                    }
+                    None => panic!("Trying to modify a non-existing block."),
+                }
+            }
+
+            Op::SpecConstantOp => {
+                if length < 3 {
+                    panic!("OpSpecConstantOp not enough arguments.");
+                }
+
+                let result_type = ops[0];
+                let id = ops[1];
+                let spec_op: Op = FromPrimitive::from_u32(ops[2]).unwrap();
+
+                let value = Box::new(SPIRConstantOp::new(
+                    result_type,
+                    spec_op,
+                    ops[3..length as usize].to_vec(),
+                ));
+                self.set(id, VariantHolder::ConstantOp(value));
+            }
+
+            // Actual opcodes.
+            _ => {
+                match &mut self.current_block {
+                    Some(current_block) => {
+                        current_block.ops.push(instruction.clone());
+                    }
+                    None => panic!("Currently no block to insert opcode."),
+                }
+                //
+            }
         }
     }
     fn parse(&mut self) {

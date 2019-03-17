@@ -9,7 +9,7 @@ use crate::spirv_common::{
     VariantHolder,
 };
 
-enum BlockMetaFlagBits {
+pub enum BlockMetaFlagBits {
     LoopHeader = 1,            // 1
     Continue = 1 << 1,         // 2
     LoopMerge = 1 << 2,        // 4

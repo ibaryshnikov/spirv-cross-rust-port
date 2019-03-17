@@ -347,7 +347,7 @@ impl IVariant for SPIRConstantOp {
 }
 
 impl SPIRConstantOp {
-    fn new(result_type: u32, op: spv::Op, args: Vec<u32>) -> Self {
+    pub fn new(result_type: u32, op: spv::Op, args: Vec<u32>) -> Self {
         SPIRConstantOp {
             opcode: op,
             arguments: args,
@@ -718,7 +718,7 @@ pub enum Terminator {
     Kill,        // Discard
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum Merge {
     None,
     Loop,
@@ -726,7 +726,7 @@ pub enum Merge {
 }
 
 #[derive(Clone)]
-enum Hints {
+pub enum Hints {
     None,
     Unroll,
     DontUnroll,
@@ -778,7 +778,7 @@ impl Phi {
 
 #[derive(Clone, Default)]
 pub struct Case {
-    value: u32,
+    pub value: u32,
     pub block: u32,
 }
 
@@ -786,18 +786,18 @@ pub struct Case {
 pub struct SPIRBlock {
     pub terminator: Terminator,
     pub merge: Merge,
-    hint: Hints,
+    pub hint: Hints,
     pub next_block: u32,
     pub merge_block: u32,
-    continue_block: u32,
+    pub continue_block: u32,
 
-    return_value: u32, // If 0, return nothing (void).
-    condition: u32,
+    pub return_value: u32, // If 0, return nothing (void).
+    pub condition: u32,
     pub true_block: u32,
     pub false_block: u32,
     pub default_block: u32,
 
-    ops: Vec<Instruction>,
+    pub ops: Vec<Instruction>,
 
     // Before entering this block flush out local variables to magical "phi" variables.
     pub phi_variables: Vec<Phi>,
@@ -937,7 +937,7 @@ pub struct SPIRFunction {
     shadow_arguments: Vec<Parameter>,
     local_variables: Vec<u32>,
     pub entry_block: u32,
-    blocks: Vec<u32>,
+    pub blocks: Vec<u32>,
     combined_parameters: Vec<CombinedImageSamplerParameter>,
 
     // Hooks to be run when the function returns.
@@ -1006,7 +1006,7 @@ impl SPIRFunction {
         self.local_variables.push(id);
     }
 
-    fn add_parameter(
+    pub fn add_parameter(
         &mut self,
         parameter_type: u32,
         id: u32,
