@@ -10,4 +10,5 @@ mod spirv_cfg;
 mod spirv_common;
 mod spirv_cross;
 mod spirv_cross_parsed_ir;
+mod spirv_glsl;
 mod spirv_parser;

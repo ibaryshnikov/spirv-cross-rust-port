@@ -36,8 +36,8 @@ impl Default for VisitOrder {
     }
 }
 
-struct Cfg<'a> {
-    compiler: &'a Compiler,
+struct Cfg<'a, T: Compiler> {
+    compiler: Box<&'a T>,
     func: &'a SPIRFunction,
     preceding_edges: HashMap<u32, Vec<u32>>,
     succeeding_edges: HashMap<u32, Vec<u32>>,
@@ -48,10 +48,10 @@ struct Cfg<'a> {
     visit_count: u32,
 }
 
-impl<'a> Cfg<'a> {
-    fn new(compiler: &'a Compiler, func: &'a SPIRFunction) -> Self {
+impl<'a, T: Compiler> Cfg<'a, T> {
+    fn new(compiler: &'a T, func: &'a SPIRFunction) -> Self {
         let mut cfg = Cfg {
-            compiler,
+            compiler: Box::new(compiler),
             func,
             preceding_edges: HashMap::new(),
             succeeding_edges: HashMap::new(),
@@ -66,8 +66,8 @@ impl<'a> Cfg<'a> {
         cfg
     }
 
-    fn get_compiler(&self) -> &'a Compiler {
-        self.compiler
+    fn get_compiler(&self) -> &'a T {
+        *self.compiler
     }
 
     fn get_function(&self) -> &'a SPIRFunction {
@@ -259,13 +259,13 @@ impl<'a> Cfg<'a> {
     //    }
 }
 
-struct DominatorBuilder<'a> {
-    cfg: &'a Cfg<'a>,
+struct DominatorBuilder<'a, T: Compiler> {
+    cfg: &'a Cfg<'a, T>,
     dominator: u32,
 }
 
-impl<'a> DominatorBuilder<'a> {
-    fn new(cfg: &'a Cfg<'a>) -> Self {
+impl<'a, T: Compiler> DominatorBuilder<'a, T> {
+    fn new(cfg: &'a Cfg<'a, T>) -> Self {
         DominatorBuilder { cfg, dominator: 0 }
     }
 
