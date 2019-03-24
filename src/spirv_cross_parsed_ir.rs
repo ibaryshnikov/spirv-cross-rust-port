@@ -628,8 +628,8 @@ impl ParsedIR {
         self.loop_iteration_depth += 1;
 
         // todo: do something with it
-        for id in &self.ids_for_type[T::get_type() as usize] {
-            if self.ids[*id as usize].get_type() as u32 == T::get_type() as u32 {
+        for id in &self.ids_for_type[T::TYPE as usize] {
+            if self.ids[*id as usize].get_type() as u32 == T::TYPE as u32 {
                 op(*id, self.get(*id as usize));
             }
         }

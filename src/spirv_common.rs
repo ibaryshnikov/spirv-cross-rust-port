@@ -158,9 +158,10 @@ impl Default for Instruction {
 }
 
 pub trait IVariant {
+    const TYPE: Types;
+
     fn get_self(&self) -> u32;
     fn set_self(&mut self, _self: u32);
-    fn get_type() -> Types;
     #[allow(clippy::borrowed_box)]
     fn cast(value: &VariantHolder) -> &Box<Self>;
 }
@@ -257,14 +258,13 @@ pub struct SPIRUndef {
 }
 
 impl IVariant for SPIRUndef {
+    const TYPE: Types = Types::Undef;
+
     fn get_self(&self) -> u32 {
         self._self
     }
     fn set_self(&mut self, value: u32) {
         self._self = value;
-    }
-    fn get_type() -> Types {
-        Types::Undef
     }
     fn cast(from: &VariantHolder) -> &Box<Self> {
         if let VariantHolder::Undef(value) = from {
@@ -290,14 +290,13 @@ pub struct SPIRCombinedImageSampler {
 }
 
 impl IVariant for SPIRCombinedImageSampler {
+    const TYPE: Types = Types::CombinedImageSampler;
+
     fn get_self(&self) -> u32 {
         self._self
     }
     fn set_self(&mut self, value: u32) {
         self._self = value;
-    }
-    fn get_type() -> Types {
-        Types::CombinedImageSampler
     }
     fn cast(from: &VariantHolder) -> &Box<Self> {
         if let VariantHolder::CombinedImageSampler(value) = from {
@@ -328,14 +327,13 @@ pub struct SPIRConstantOp {
 }
 
 impl IVariant for SPIRConstantOp {
+    const TYPE: Types = Types::ConstantOp;
+
     fn get_self(&self) -> u32 {
         self._self
     }
     fn set_self(&mut self, value: u32) {
         self._self = value;
-    }
-    fn get_type() -> Types {
-        Types::ConstantOp
     }
     fn cast(from: &VariantHolder) -> &Box<Self> {
         if let VariantHolder::ConstantOp(value) = from {
@@ -452,14 +450,13 @@ impl Clone for SPIRType {
 }
 
 impl IVariant for SPIRType {
+    const TYPE: Types = Types::Type;
+
     fn get_self(&self) -> u32 {
         self._self
     }
     fn set_self(&mut self, value: u32) {
         self._self = value;
-    }
-    fn get_type() -> Types {
-        Types::Type
     }
     fn cast(from: &VariantHolder) -> &Box<Self> {
         if let VariantHolder::Type(value) = from {
@@ -524,14 +521,13 @@ pub struct SPIRExtension {
 }
 
 impl IVariant for SPIRExtension {
+    const TYPE: Types = Types::Extension;
+
     fn get_self(&self) -> u32 {
         self._self
     }
     fn set_self(&mut self, value: u32) {
         self._self = value;
-    }
-    fn get_type() -> Types {
-        Types::Extension
     }
     fn cast(from: &VariantHolder) -> &Box<Self> {
         if let VariantHolder::Extension(value) = from {
@@ -634,14 +630,13 @@ pub struct SPIRExpression {
 }
 
 impl IVariant for SPIRExpression {
+    const TYPE: Types = Types::Expression;
+
     fn get_self(&self) -> u32 {
         self._self
     }
     fn set_self(&mut self, value: u32) {
         self._self = value;
-    }
-    fn get_type() -> Types {
-        Types::Expression
     }
     fn cast(from: &VariantHolder) -> &Box<Self> {
         if let VariantHolder::Expression(value) = from {
@@ -677,14 +672,13 @@ pub struct SPIRFunctionPrototype {
 }
 
 impl IVariant for SPIRFunctionPrototype {
+    const TYPE: Types = Types::FunctionPrototype;
+
     fn get_self(&self) -> u32 {
         self._self
     }
     fn set_self(&mut self, value: u32) {
         self._self = value;
-    }
-    fn get_type() -> Types {
-        Types::FunctionPrototype
     }
     fn cast(from: &VariantHolder) -> &Box<Self> {
         if let VariantHolder::FunctionPrototype(value) = from {
@@ -844,14 +838,13 @@ pub struct SPIRBlock {
 }
 
 impl IVariant for SPIRBlock {
+    const TYPE: Types = Types::Block;
+
     fn get_self(&self) -> u32 {
         self._self
     }
     fn set_self(&mut self, value: u32) {
         self._self = value;
-    }
-    fn get_type() -> Types {
-        Types::Block
     }
     fn cast(from: &VariantHolder) -> &Box<Self> {
         if let VariantHolder::Block(value) = from {
@@ -963,14 +956,13 @@ pub struct SPIRFunction {
 }
 
 impl IVariant for SPIRFunction {
+    const TYPE: Types = Types::Function;
+
     fn get_self(&self) -> u32 {
         self._self
     }
     fn set_self(&mut self, value: u32) {
         self._self = value;
-    }
-    fn get_type() -> Types {
-        Types::Function
     }
     fn cast(from: &VariantHolder) -> &Box<Self> {
         if let VariantHolder::Function(value) = from {
@@ -1045,14 +1037,13 @@ pub struct SPIRAccessChain {
 }
 
 impl IVariant for SPIRAccessChain {
+    const TYPE: Types = Types::AccessChain;
+
     fn get_self(&self) -> u32 {
         self._self
     }
     fn set_self(&mut self, value: u32) {
         self._self = value;
-    }
-    fn get_type() -> Types {
-        Types::AccessChain
     }
     fn cast(from: &VariantHolder) -> &Box<Self> {
         if let VariantHolder::AccessChain(value) = from {
@@ -1133,14 +1124,13 @@ pub struct SPIRVariable {
 }
 
 impl IVariant for SPIRVariable {
+    const TYPE: Types = Types::Variable;
+
     fn get_self(&self) -> u32 {
         self._self
     }
     fn set_self(&mut self, value: u32) {
         self._self = value;
-    }
-    fn get_type() -> Types {
-        Types::Variable
     }
     fn cast(from: &VariantHolder) -> &Box<Self> {
         if let VariantHolder::Variable(value) = from {
@@ -1288,14 +1278,13 @@ pub struct SPIRConstant {
 }
 
 impl IVariant for SPIRConstant {
+    const TYPE: Types = Types::Constant;
+
     fn get_self(&self) -> u32 {
         self._self
     }
     fn set_self(&mut self, value: u32) {
         self._self = value;
-    }
-    fn get_type() -> Types {
-        Types::Constant
     }
     fn cast(from: &VariantHolder) -> &Box<Self> {
         if let VariantHolder::Constant(value) = from {
